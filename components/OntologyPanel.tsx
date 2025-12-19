@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { OntologySettings } from '../types';
-import { Settings2, FastForward, ShieldAlert, Target, Info, Hash, UserCircle } from 'lucide-react';
+import { Settings2, FastForward, ShieldAlert, Target, Info, Hash, UserCircle, Zap, Filter } from 'lucide-react';
 
 interface OntologyPanelProps {
   settings: OntologySettings;
@@ -38,9 +38,6 @@ const OntologyPanel: React.FC<OntologyPanelProps> = ({ settings, onUpdate }) => 
             placeholder="Define the AI's core personality and role. Leave empty for default Chronos identity."
             className="w-full h-32 p-3 bg-indigo-50/30 border border-indigo-100 rounded-xl text-xs text-slate-700 resize-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none leading-relaxed"
           />
-          <p className="text-[10px] text-slate-400 italic leading-relaxed">
-            This prompt governs the AI's voice and behavioral constraints.
-          </p>
         </section>
 
         {/* Extraction Sensitivity */}
@@ -61,7 +58,51 @@ const OntologyPanel: React.FC<OntologyPanelProps> = ({ settings, onUpdate }) => 
             className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
           />
           <p className="text-[10px] text-slate-400 italic leading-relaxed">
-            Higher values filter out trivial interactions, storing only high-importance episodic nodes.
+            Minimum importance required to save a fact in long-term memory.
+          </p>
+        </section>
+
+        {/* MMR Lambda */}
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
+              <Zap className="w-3 h-3" />
+              MMR Diversity (λ)
+            </label>
+            <span className="text-xs font-mono bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded">
+              {settings.mmrLambda.toFixed(2)}
+            </span>
+          </div>
+          <input 
+            type="range" min="0" max="1" step="0.05"
+            value={settings.mmrLambda}
+            onChange={(e) => onUpdate({ ...settings, mmrLambda: parseFloat(e.target.value) })}
+            className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+          />
+          <p className="text-[10px] text-slate-400 italic leading-relaxed">
+            Lower = more diverse results. Higher = most relevant results.
+          </p>
+        </section>
+
+        {/* Similarity Threshold */}
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
+              <Filter className="w-3 h-3" />
+              Similarity Floor
+            </label>
+            <span className="text-xs font-mono bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded">
+              {settings.similarityThreshold.toFixed(2)}
+            </span>
+          </div>
+          <input 
+            type="range" min="0.1" max="0.9" step="0.05"
+            value={settings.similarityThreshold}
+            onChange={(e) => onUpdate({ ...settings, similarityThreshold: parseFloat(e.target.value) })}
+            className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+          />
+          <p className="text-[10px] text-slate-400 italic leading-relaxed">
+            Minimum cosine similarity for a memory to be recalled.
           </p>
         </section>
 
@@ -70,7 +111,7 @@ const OntologyPanel: React.FC<OntologyPanelProps> = ({ settings, onUpdate }) => 
           <div className="flex items-center justify-between">
             <label className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
               <FastForward className="w-3 h-3" />
-              Temporal Decay
+              Temporal Weight
             </label>
             <span className="text-xs font-mono bg-amber-50 text-amber-600 px-2 py-0.5 rounded">
               {settings.decayRate}x
@@ -83,7 +124,7 @@ const OntologyPanel: React.FC<OntologyPanelProps> = ({ settings, onUpdate }) => 
             className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-amber-500"
           />
           <p className="text-[10px] text-slate-400 italic leading-relaxed">
-            Adjusts how quickly the similarity score of older memories decreases relative to newer context.
+            How much recency affects the ranking of memories.
           </p>
         </section>
 
@@ -114,7 +155,7 @@ const OntologyPanel: React.FC<OntologyPanelProps> = ({ settings, onUpdate }) => 
         <section className="space-y-4">
           <label className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
             <Hash className="w-3 h-3" />
-            Active Constraints
+            Extraction Constraints
           </label>
           <textarea
             value={settings.customConstraint}
@@ -129,7 +170,7 @@ const OntologyPanel: React.FC<OntologyPanelProps> = ({ settings, onUpdate }) => 
         <div className="flex items-start gap-2 p-3 bg-white rounded-xl border border-slate-200 shadow-sm">
           <Info className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
           <p className="text-[9px] text-slate-400 leading-tight uppercase font-bold tracking-tight">
-            System Identity changes take effect immediately on next message.
+            MMR and Threshold settings affect retrieval diversity and relevance.
           </p>
         </div>
       </div>

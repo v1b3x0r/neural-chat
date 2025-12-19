@@ -1,380 +1,507 @@
-
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Message, EpisodicMemory, VectorMatch, MessageImage, OntologySettings, ProspectiveMemory } from './types';
-import { chatWithMemoryStream, extractMemories, extractIntents, getEmbedding, mmrSearch, getImageDescription } from './services/geminiService';
+// Fix: Implementing the main App component with memory management, retrieval, and chat logic
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  Message, 
+  EpisodicMemory, 
+  ProspectiveMemory, 
+  OntologySettings, 
+  ChatSession,
+  VectorMatch 
+} from './types';
+import { 
+  getEmbedding, 
+  mmrSearch, 
+  chatWithMemoryStream, 
+  extractMemories, 
+  extractIntents,
+  getImageDescription
+} from './services/geminiService';
 import MemoryList from './components/MemoryList';
 import MemoryNetwork from './components/MemoryNetwork';
 import OntologyPanel from './components/OntologyPanel';
 import { 
-  Send, Sidebar, History, BrainCircuit, 
-  Image as ImageIcon, X, Layers, 
-  Network, Loader2, Settings2, Compass, CheckCircle2
+  Send, 
+  Image as ImageIcon, 
+  Brain, 
+  Settings, 
+  X, 
+  Loader2, 
+  ChevronRight,
+  Database,
+  Search,
+  MessageSquare,
+  Sparkles
 } from 'lucide-react';
 
-const DEFAULT_ONTOLOGY: OntologySettings = {
+const STORAGE_KEY = 'chronos_chat_session';
+
+const DEFAULT_SETTINGS: OntologySettings = {
   importanceThreshold: 5,
-  decayRate: 1.0,
+  decayRate: 0.5,
+  mmrLambda: 0.5,
+  similarityThreshold: 0.4,
   focusEntities: ["Personal", "Professional"],
   customConstraint: "",
   systemPrompt: ""
 };
 
 const App: React.FC = () => {
-  // --- Core Persistent State ---
   const [messages, setMessages] = useState<Message[]>([]);
   const [memories, setMemories] = useState<EpisodicMemory[]>([]);
   const [prospective, setProspective] = useState<ProspectiveMemory[]>([]);
-  const [ontology, setOntology] = useState<OntologySettings>(DEFAULT_ONTOLOGY);
-  const [lastDistilledIndex, setLastDistilledIndex] = useState(0);
-
-  // --- UI Transient State ---
-  const [input, setInput] = useState('');
-  const [selectedImage, setSelectedImage] = useState<MessageImage | null>(null);
+  const [settings, setSettings] = useState<OntologySettings>(DEFAULT_SETTINGS);
+  
+  const [inputText, setInputText] = useState('');
+  const [selectedImage, setSelectedImage] = useState<{ data: string, mimeType: string } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [isSearching, setIsSearching] = useState(false);
-  const [isBackgroundIndexing, setIsBackgroundIndexing] = useState(false);
-  const [isDistilling, setIsDistilling] = useState(false);
-  const [showSidebar, setShowSidebar] = useState(true);
-  const [showOntology, setShowOntology] = useState(true);
+  const [showOntology, setShowOntology] = useState(false);
   const [showNetwork, setShowNetwork] = useState(false);
-  const [recalledMessages, setRecalledMessages] = useState<VectorMatch<Message>[]>([]);
-  const [recalledFacts, setRecalledFacts] = useState<VectorMatch<EpisodicMemory>[]>([]);
+  const [recalledData, setRecalledData] = useState<{
+    messages: VectorMatch<Message>[];
+    facts: VectorMatch<EpisodicMemory>[];
+  }>({ messages: [], facts: [] });
 
-  // --- Refs ---
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const indexingTimeoutRef = useRef<number | null>(null);
-  const distillationTimeoutRef = useRef<number | null>(null);
 
-  // --- Initialization & Persistence ---
+  // Initialize and load session from local storage
   useEffect(() => {
-    const savedMessages = localStorage.getItem('chronos_messages');
-    const savedMemories = localStorage.getItem('chronos_memories');
-    const savedProspective = localStorage.getItem('chronos_prospective');
-    const savedOntology = localStorage.getItem('chronos_ontology');
-    const savedLastIndex = localStorage.getItem('chronos_last_distilled');
-    
-    if (savedMessages) setMessages(JSON.parse(savedMessages));
-    if (savedMemories) setMemories(JSON.parse(savedMemories));
-    if (savedProspective) setProspective(JSON.parse(savedProspective));
-    if (savedLastIndex) setLastDistilledIndex(parseInt(savedLastIndex));
-    if (savedOntology) setOntology({ ...DEFAULT_ONTOLOGY, ...JSON.parse(savedOntology) });
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      try {
+        const parsed: ChatSession = JSON.parse(saved);
+        setMessages(parsed.messages || []);
+        setMemories(parsed.memories || []);
+        setProspective(parsed.prospective || []);
+      } catch (e) {
+        console.error("Failed to load session", e);
+      }
+    }
   }, []);
 
+  // Persist session to local storage whenever state changes
   useEffect(() => {
-    localStorage.setItem('chronos_messages', JSON.stringify(messages));
-    localStorage.setItem('chronos_memories', JSON.stringify(memories));
-    localStorage.setItem('chronos_prospective', JSON.stringify(prospective));
-    localStorage.setItem('chronos_ontology', JSON.stringify(ontology));
-    localStorage.setItem('chronos_last_distilled', lastDistilledIndex.toString());
-  }, [messages, memories, prospective, ontology, lastDistilledIndex]);
+    const session: ChatSession = { messages, memories, prospective };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+  }, [messages, memories, prospective]);
 
-  // --- Background Processing ---
+  // Auto-scroll to the bottom of the chat
   useEffect(() => {
-    if (messages.length > lastDistilledIndex && !isLoading) {
-      if (distillationTimeoutRef.current) window.clearTimeout(distillationTimeoutRef.current);
-      distillationTimeoutRef.current = window.setTimeout(async () => {
-        setIsDistilling(true);
-        try {
-          const newSegment = messages.slice(lastDistilledIndex);
-          if (newSegment.length > 0) {
-            const [extractedFacts, extractedIntents] = await Promise.all([
-              extractMemories(newSegment, ontology.customConstraint),
-              extractIntents(newSegment)
-            ]);
-            if (extractedFacts?.length > 0) {
-              const processed = extractedFacts
-                .filter(e => (e.importance || 5) >= ontology.importanceThreshold)
-                .map(e => ({
-                  id: Math.random().toString(36).substr(2, 9),
-                  content: e.content || '',
-                  importance: e.importance || 5,
-                  tags: [...(e.tags || []), ...ontology.focusEntities],
-                  timestamp: Date.now(),
-                  relevanceRating: 0,
-                }));
-              if (processed.length > 0) setMemories(prev => [...prev, ...processed]);
-            }
-            if (extractedIntents?.length > 0) {
-              const processedIntents = extractedIntents.map(i => ({
-                id: Math.random().toString(36).substr(2, 9),
-                intent: i.intent || '',
-                status: 'pending' as const,
-                priority: i.priority || 1,
-                timestamp: Date.now(),
-                context_clue: i.context_clue || ''
-              }));
-              setProspective(prev => [...prev, ...processedIntents]);
-            }
-          }
-          setLastDistilledIndex(messages.length);
-        } finally { setIsDistilling(false); }
-      }, 5000); 
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages, lastDistilledIndex, isLoading, ontology]);
+  }, [messages]);
 
-  useEffect(() => {
-    const startIndexing = () => {
-      const msgToIndex = messages.find(m => !m.embedding && m.content.trim().length > 0);
-      if (msgToIndex) {
-        setIsBackgroundIndexing(true);
-        getEmbedding(msgToIndex.content).then(emb => {
-          if (emb.length) setMessages(prev => prev.map(m => m.timestamp === msgToIndex.timestamp ? { ...m, embedding: emb } : m));
-        });
-        return;
-      }
-      const memToIndex = memories.find(m => !m.embedding);
-      if (memToIndex) {
-        setIsBackgroundIndexing(true);
-        getEmbedding(memToIndex.content).then(emb => {
-          if (emb.length) setMemories(prev => prev.map(m => m.id === memToIndex.id ? { ...m, embedding: emb } : m));
-        });
-        return;
-      }
-      setIsBackgroundIndexing(false);
-    };
-    if (indexingTimeoutRef.current) window.clearTimeout(indexingTimeoutRef.current);
-    indexingTimeoutRef.current = window.setTimeout(startIndexing, 1500);
-  }, [messages, memories]);
-
-  const scrollToBottom = useCallback(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, []);
-  useEffect(() => { scrollToBottom(); }, [messages, isLoading, scrollToBottom]);
-
-  // --- Logic ---
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => { setSelectedImage({ data: (reader.result as string).split(',')[1], mimeType: file.type }); };
+      reader.onload = (event) => {
+        const base64 = event.target?.result as string;
+        const data = base64.split(',')[1];
+        setSelectedImage({ data, mimeType: file.type });
+      };
       reader.readAsDataURL(file);
     }
   };
 
-  const handleRateMemory = (id: string, rating: number) => {
-    setMemories(prev => prev.map(m => m.id === id ? { ...m, relevanceRating: rating } : m));
-    // Also update current recalled facts display if applicable
-    setRecalledFacts(prev => prev.map(m => m.item.id === id ? { ...m, item: { ...m.item, relevanceRating: rating } } : m));
-  };
+  const handleSendMessage = async () => {
+    if (!inputText.trim() && !selectedImage) return;
 
-  const handleSend = async () => {
-    if ((!input.trim() && !selectedImage) || isLoading) return;
-
-    const userInput = input.trim();
-    const currentImage = selectedImage;
-    
-    setInput('');
+    const userContent = inputText;
+    const userImage = selectedImage;
+    setInputText('');
     setSelectedImage(null);
     setIsLoading(true);
 
     try {
-      setIsSearching(true);
-      
-      // Local Multimodal Memory Retrieval: 
-      let queryText = userInput;
-      if (currentImage && !userInput) {
-        queryText = await getImageDescription(currentImage);
-      } else if (currentImage && userInput) {
-        const desc = await getImageDescription(currentImage);
-        queryText = `${userInput}. ${desc}`;
+      // 1. Describe image if present for semantic retrieval context
+      let visualContext = "";
+      if (userImage) {
+        visualContext = await getImageDescription(userImage);
       }
 
-      const queryEmbedding = await getEmbedding(queryText || "Observation");
-      const matchedMsgs = mmrSearch(queryEmbedding, messages, 3, 0.6, ontology.decayRate);
-      const matchedFacts = mmrSearch(queryEmbedding, memories, 3, 0.4, ontology.decayRate); 
-      
-      setRecalledMessages(matchedMsgs);
-      setRecalledFacts(matchedFacts);
-      if (matchedMsgs.length || matchedFacts.length) setShowNetwork(true);
-      setIsSearching(false);
+      // 2. Get query embedding (incorporating visual context)
+      const queryText = userContent + (visualContext ? ` [Visual: ${visualContext}]` : "");
+      const queryEmbedding = await getEmbedding(queryText);
 
-      const userMsg: Message = {
+      // 3. Neural Retrieval (MMR)
+      const recalledMsg = mmrSearch(
+        queryEmbedding, 
+        messages, 
+        4, 
+        settings.mmrLambda, 
+        settings.decayRate, 
+        settings.similarityThreshold
+      );
+      const recalledFacts = mmrSearch(
+        queryEmbedding, 
+        memories, 
+        5, 
+        settings.mmrLambda, 
+        settings.decayRate, 
+        settings.similarityThreshold
+      );
+
+      setRecalledData({ messages: recalledMsg, facts: recalledFacts });
+      // Pulse the network visualization if there's any recall
+      if (recalledMsg.length > 0 || recalledFacts.length > 0) {
+        setShowNetwork(true);
+      }
+
+      const newUserMessage: Message = {
         role: 'user',
-        content: userInput || (currentImage ? "[Analyzing local context...]" : ""),
+        content: userContent,
         timestamp: Date.now(),
         embedding: queryEmbedding,
-        image: currentImage || undefined
+        image: userImage || undefined
       };
-      
-      const sessionMessages = [...messages, userMsg];
-      setMessages(sessionMessages);
 
-      const botMsg: Message = { role: 'model', content: '', timestamp: Date.now() };
-      setMessages(prev => [...prev, botMsg]);
+      setMessages(prev => [...prev, newUserMessage]);
 
-      const stream = chatWithMemoryStream(sessionMessages, memories, matchedMsgs, matchedFacts, prospective, ontology.systemPrompt);
-      
-      let fullContent = '';
+      // 4. Chat with retrieved memory context
+      const modelPlaceholder: Message = {
+        role: 'model',
+        content: '',
+        timestamp: Date.now()
+      };
+      setMessages(prev => [...prev, modelPlaceholder]);
+
+      let fullResponse = "";
+      const stream = chatWithMemoryStream(
+        [...messages, newUserMessage],
+        memories,
+        recalledMsg,
+        recalledFacts,
+        prospective,
+        settings.systemPrompt
+      );
+
       for await (const chunk of stream) {
-        fullContent += chunk;
+        fullResponse += chunk;
         setMessages(prev => {
-          const updated = [...prev];
-          const last = updated[updated.length - 1];
-          if (last.role === 'model') {
-            last.content = fullContent;
-          }
-          return updated;
+          const last = prev[prev.length - 1];
+          return [...prev.slice(0, -1), { ...last, content: fullResponse }];
         });
       }
+
+      // 5. Cognitive Distillation: Extract long-term facts and future intents
+      const responseEmbedding = await getEmbedding(fullResponse);
+      setMessages(prev => {
+        const last = prev[prev.length - 1];
+        return [...prev.slice(0, -1), { ...last, embedding: responseEmbedding }];
+      });
+
+      const chatSegment = [newUserMessage, { ...modelPlaceholder, content: fullResponse }];
+      
+      // Extraction (Asynchronous)
+      const [extractedMemories, extractedIntents] = await Promise.all([
+        extractMemories(chatSegment, settings.customConstraint),
+        extractIntents(chatSegment)
+      ]);
+
+      // Process and save new memories
+      const newMemories: EpisodicMemory[] = [];
+      for (const item of extractedMemories) {
+        if (item.importance && item.importance >= settings.importanceThreshold && item.content) {
+          const emb = await getEmbedding(item.content);
+          newMemories.push({
+            id: crypto.randomUUID(),
+            content: item.content,
+            importance: item.importance,
+            tags: item.tags || [],
+            timestamp: Date.now(),
+            embedding: emb,
+            relevanceRating: 0
+          });
+        }
+      }
+      if (newMemories.length > 0) setMemories(prev => [...prev, ...newMemories]);
+
+      // Process and save new prospective intents
+      const newIntents: ProspectiveMemory[] = extractedIntents.map(i => ({
+        id: crypto.randomUUID(),
+        intent: i.intent || "",
+        priority: i.priority || 1,
+        status: 'pending',
+        timestamp: Date.now(),
+        context_clue: i.context_clue || ""
+      }));
+      if (newIntents.length > 0) setProspective(prev => [...prev, ...newIntents]);
+
     } catch (error) {
-      console.error(error);
-      setMessages(prev => [...prev, { role: 'model', content: 'Neural synchronization error.', timestamp: Date.now() }]);
+      console.error("Cognitive loop failed:", error);
     } finally {
       setIsLoading(false);
-      setIsSearching(false);
+    }
+  };
+
+  const deleteMemory = (id: string) => {
+    setMemories(prev => prev.filter(m => m.id !== id));
+  };
+
+  const rateMemory = (id: string, rating: number) => {
+    setMemories(prev => prev.map(m => m.id === id ? { ...m, relevanceRating: rating } : m));
+  };
+
+  const clearChat = () => {
+    if (window.confirm("Clear session history? Stored LTM (memories) will persist.")) {
+      setMessages([]);
+      setProspective([]);
     }
   };
 
   return (
-    <div className="flex h-screen bg-slate-50 text-slate-800 overflow-hidden">
-      <aside className={`bg-white border-r border-slate-200 transition-all duration-300 flex flex-col shrink-0 ${showSidebar ? 'w-80' : 'w-0 overflow-hidden'}`}>
-        <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+    <div className="flex h-screen bg-slate-50 overflow-hidden font-sans text-slate-900">
+      {/* Left Sidebar: Knowledge Base */}
+      <div className="hidden lg:flex flex-col w-80 bg-white border-r border-slate-200 shadow-xl z-10">
+        <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-indigo-600 text-white">
           <div className="flex items-center gap-2">
-            <div className="bg-indigo-600 p-1.5 rounded-lg shadow-lg">
-              <BrainCircuit className="w-5 h-5 text-white" />
-            </div>
-            <span className="font-bold text-lg tracking-tight">Chronos</span>
+            <Brain className="w-6 h-6" />
+            <h1 className="font-black tracking-tighter text-2xl">CHRONOS</h1>
           </div>
-          <button onClick={() => setShowSidebar(false)} className="text-slate-400 p-1 hover:bg-slate-50 rounded-lg transition-colors"><Sidebar className="w-5 h-5" /></button>
         </div>
         
-        <div className="p-3 bg-slate-50 border-b border-slate-100 space-y-3">
-          <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-            <span>Neural Store</span>
-            <div className="flex items-center gap-1.5">
-              {isDistilling && <span className="text-emerald-500 bg-emerald-50 px-1.5 py-0.5 rounded animate-pulse">Distilling</span>}
-              {isBackgroundIndexing && <span className="text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded animate-pulse">Indexing</span>}
-              {!isDistilling && !isBackgroundIndexing && <span className="text-slate-400 px-2">Idling</span>}
-            </div>
-          </div>
+        <div className="flex-1 overflow-hidden">
+          <MemoryList memories={memories} onDelete={deleteMemory} />
         </div>
 
-        <div className="flex-1 overflow-y-auto p-2 space-y-4">
-          <div className="px-2">
-            <div className="flex items-center gap-2 mb-3">
-              <Compass className="w-4 h-4 text-emerald-500" />
-              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Prospectives</h3>
-            </div>
-            {prospective.filter(p => p.status === 'pending').map(p => (
-              <div key={p.id} className="group bg-emerald-50/50 border border-emerald-100 p-3 rounded-xl mb-2 flex gap-3 items-start animate-in fade-in slide-in-from-left-2">
-                <div className="flex-1">
-                  <p className="text-xs text-slate-700 font-medium leading-tight">{p.intent}</p>
+        {/* Prospective Memory (Task) List */}
+        <div className="p-4 bg-slate-50 border-t border-slate-100">
+          <div className="flex items-center justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">
+            <span>Prospective Stack</span>
+            <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">{prospective.filter(p => p.status === 'pending').length}</span>
+          </div>
+          <div className="space-y-2 max-h-32 overflow-y-auto pr-1">
+            {prospective.filter(p => p.status === 'pending').length === 0 ? (
+              <p className="text-[10px] text-slate-400 italic text-center py-2">No pending intents...</p>
+            ) : (
+              prospective.filter(p => p.status === 'pending').map(p => (
+                <div key={p.id} className="p-2 bg-white rounded-lg border border-slate-200 text-[10px] flex items-center gap-2 hover:border-amber-200 transition-colors shadow-sm">
+                  <div className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                  <span className="truncate text-slate-600 font-medium">{p.intent}</span>
                 </div>
-                <button 
-                  onClick={() => setProspective(prev => prev.map(x => x.id === p.id ? {...x, status: 'resolved'} : x))} 
-                  className="opacity-0 group-hover:opacity-100 p-1 text-emerald-400 hover:text-emerald-600 transition-all"
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                </button>
-              </div>
-            ))}
-          </div>
-          <div className="border-t border-slate-100 my-4" />
-          <MemoryList memories={memories} onDelete={(id) => setMemories(prev => prev.filter(m => m.id !== id))} />
-        </div>
-
-        <div className="p-4 border-t border-slate-100">
-          <button onClick={() => { if (confirm('Purge local nodes?')) { setMessages([]); setMemories([]); setProspective([]); } }} className="w-full flex items-center justify-center gap-2 text-xs text-slate-400 hover:text-red-500 transition-colors py-2"><History className="w-3 h-3" /> System Purge</button>
-        </div>
-      </aside>
-
-      <main className="flex-1 flex flex-col relative min-w-0 bg-slate-50">
-        <header className="h-16 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center justify-between px-6 sticky top-0 z-30 shadow-sm">
-          <div className="flex items-center gap-4">
-            {!showSidebar && <button onClick={() => setShowSidebar(true)} className="p-2 hover:bg-slate-100 rounded-lg transition-colors"><Sidebar className="w-5 h-5 text-slate-500" /></button>}
-            <h1 className="font-semibold text-slate-700 flex items-center gap-2">
-              <Layers className="w-4 h-4 text-indigo-500" />
-              Stream Matrix
-              {isLoading && <Loader2 className="w-3 h-3 animate-spin text-indigo-400" />}
-            </h1>
-          </div>
-          <div className="flex items-center gap-3">
-            {showNetwork && (
-              <button onClick={() => setShowNetwork(!showNetwork)} className="flex items-center gap-2 text-[10px] font-bold px-3 py-1.5 rounded-full bg-indigo-600 text-white shadow-lg transition-all active:scale-95">
-                <Network className="w-3 h-3" /> LOCAL RECALL GRAPH
-              </button>
+              ))
             )}
-            <button onClick={() => setShowOntology(!showOntology)} className={`p-2 rounded-lg transition-colors ${showOntology ? 'bg-indigo-50 text-indigo-600' : 'text-slate-400'}`}><Settings2 className="w-5 h-5" /></button>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Experience Area */}
+      <main className="flex-1 flex flex-col relative min-w-0">
+        {/* Navigation Bar */}
+        <header className="h-16 flex items-center justify-between px-6 bg-white/80 backdrop-blur-md border-b border-slate-200 shrink-0 z-20 sticky top-0">
+          <div className="flex items-center gap-4">
+            <div className="lg:hidden flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-indigo-600" />
+              <span className="font-black text-lg tracking-tighter">Chronos</span>
+            </div>
+            <div className="hidden md:flex items-center gap-3">
+              <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 bg-slate-100 px-3 py-1 rounded-full border border-slate-200">
+                <MessageSquare className="w-3 h-3" />
+                <span>{messages.length} TURNS</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 bg-slate-100 px-3 py-1 rounded-full border border-slate-200">
+                <Database className="w-3 h-3" />
+                <span>{memories.length} LTM NODES</span>
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => setShowNetwork(!showNetwork)}
+              className={`p-2 rounded-xl transition-all ${showNetwork ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'bg-slate-50 text-slate-400 hover:text-indigo-600 hover:bg-white border border-slate-100'}`}
+              title="Neural Connectivity View"
+            >
+              <Brain className="w-5 h-5" />
+            </button>
+            <button 
+              onClick={() => setShowOntology(!showOntology)}
+              className={`p-2 rounded-xl transition-all ${showOntology ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'bg-slate-50 text-slate-400 hover:text-indigo-600 hover:bg-white border border-slate-100'}`}
+              title="Ontology Config"
+            >
+              <Settings className="w-5 h-5" />
+            </button>
+            <div className="w-px h-6 bg-slate-200 mx-1" />
+            <button 
+              onClick={clearChat}
+              className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+              title="Reset Session"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
         </header>
 
+        {/* Neural Context Visualization Overlay */}
         {showNetwork && (
           <MemoryNetwork 
-            recalledMessages={recalledMessages} 
-            recalledFacts={recalledFacts} 
-            onClose={() => setShowNetwork(false)} 
-            onRateMemory={handleRateMemory}
+            recalledMessages={recalledData.messages} 
+            recalledFacts={recalledData.facts} 
+            onClose={() => setShowNetwork(false)}
+            onRateMemory={rateMemory}
           />
         )}
 
-        <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6">
+        {/* Chat History */}
+        <div 
+          ref={scrollRef}
+          className="flex-1 overflow-y-auto p-6 md:p-12 space-y-10 scroll-smooth"
+        >
           {messages.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-center max-w-sm mx-auto space-y-4 pt-20">
-              <div className="bg-white p-8 rounded-full shadow-xl shadow-indigo-100/50 border border-slate-100"><BrainCircuit className="w-12 h-12 text-indigo-600" /></div>
-              <h3 className="text-xl font-bold text-slate-800 tracking-tight">Local Episodic Brain</h3>
-              <p className="text-slate-500 text-sm">Chronos retrieves facts from your private memory store. Upload an image to find semantically related past experiences.</p>
+            <div className="h-full flex flex-col items-center justify-center text-center max-w-md mx-auto">
+              <div className="relative mb-8">
+                <div className="w-24 h-24 bg-indigo-600 rounded-[2.5rem] flex items-center justify-center shadow-2xl shadow-indigo-200 animate-pulse">
+                  <Brain className="w-12 h-12 text-white" />
+                </div>
+                <div className="absolute -top-2 -right-2 w-8 h-8 bg-amber-400 rounded-full flex items-center justify-center shadow-lg animate-bounce">
+                  <Sparkles className="w-4 h-4 text-white" />
+                </div>
+              </div>
+              <h2 className="text-3xl font-black text-slate-800 tracking-tight">Cognitive Memory Assistant</h2>
+              <p className="text-slate-500 mt-4 text-sm leading-relaxed font-medium">
+                I integrate every conversation into a vectorized knowledge base. 
+                Upload images or share complex ideas; I'll recall them precisely when they become relevant.
+              </p>
+              <div className="grid grid-cols-2 gap-3 mt-10 w-full">
+                <div className="p-4 bg-white border border-slate-200 rounded-2xl text-left shadow-sm">
+                  <p className="text-[10px] font-black text-indigo-600 uppercase mb-1">Visual Indexing</p>
+                  <p className="text-[11px] text-slate-500">"What was that chart I showed you yesterday?"</p>
+                </div>
+                <div className="p-4 bg-white border border-slate-200 rounded-2xl text-left shadow-sm">
+                  <p className="text-[10px] font-black text-emerald-600 uppercase mb-1">Temporal Recall</p>
+                  <p className="text-[11px] text-slate-500">"Summarize our discussion on AI ethics from last week."</p>
+                </div>
+              </div>
             </div>
           ) : (
-            messages.map((msg, idx) => (
-              <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-300`}>
-                <div className={`max-w-[85%] md:max-w-[70%] rounded-2xl p-4 relative ${msg.role === 'user' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100 rounded-tr-none' : 'bg-white border border-slate-200 text-slate-700 shadow-sm rounded-tl-none'}`}>
-                  <div className="text-xs opacity-50 mb-1 font-mono flex justify-between gap-10">
-                    <span>{msg.role === 'user' ? 'User' : 'Chronos'}</span>
-                    <span>{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+            messages.map((msg, i) => (
+              <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-4 duration-500`}>
+                <div className={`max-w-[85%] md:max-w-[75%] group ${msg.role === 'user' ? 'items-end' : 'items-start'} flex flex-col gap-2`}>
+                  <div className={`px-5 py-4 rounded-3xl shadow-sm text-sm leading-relaxed relative ${
+                    msg.role === 'user' 
+                      ? 'bg-indigo-600 text-white rounded-tr-none' 
+                      : 'bg-white border border-slate-200 text-slate-800 rounded-tl-none shadow-slate-200/50'
+                  }`}>
+                    {msg.image && (
+                      <div className="mb-4 rounded-2xl overflow-hidden border border-black/5 shadow-inner">
+                        <img 
+                          src={`data:${msg.image.mimeType};base64,${msg.image.data}`} 
+                          alt="User visual input" 
+                          className="max-h-80 w-full object-contain bg-slate-50"
+                        />
+                      </div>
+                    )}
+                    <div className="whitespace-pre-wrap font-medium">{msg.content}</div>
                   </div>
-                  {msg.image && (
-                    <div className="mb-2 relative rounded-lg overflow-hidden border border-black/5">
-                      <img src={`data:${msg.image.mimeType};base64,${msg.image.data}`} className="max-w-full h-auto" />
-                      <div className="absolute bottom-2 right-2 bg-black/50 text-white text-[8px] px-1.5 py-0.5 rounded uppercase font-bold tracking-widest backdrop-blur-md">Local Input</div>
-                    </div>
-                  )}
-                  <div className="whitespace-pre-wrap leading-relaxed text-sm md:text-base">
-                    {msg.content || (msg.role === 'model' && <span className="opacity-50 animate-pulse">Recalling...</span>)}
+                  
+                  <div className={`flex items-center gap-3 px-1 opacity-0 group-hover:opacity-100 transition-opacity ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">
+                      {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                    {msg.embedding && (
+                      <div className="flex items-center gap-1 text-[8px] bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full uppercase font-black border border-indigo-100/50">
+                        <Database className="w-2 h-2" />
+                        Embedded
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
             ))
           )}
-        </div>
-
-        <div className="p-4 md:p-6 bg-white border-t border-slate-200">
-          <div className="max-w-4xl mx-auto flex flex-col gap-3">
-            <div className="bg-slate-50 rounded-3xl border border-slate-200 shadow-sm overflow-hidden focus-within:ring-2 focus-within:ring-indigo-500/20 transition-all">
-              <div className="flex gap-2 p-2.5 items-end">
-                <input type="file" min="1" max="1" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
-                <button onClick={() => fileInputRef.current?.click()} className={`p-3 transition-colors rounded-2xl ${selectedImage ? 'text-indigo-600 bg-indigo-50' : 'text-slate-400 hover:text-indigo-600'}`}>
-                  <ImageIcon className="w-5 h-5" />
-                </button>
-                <textarea 
-                  value={input} 
-                  onChange={(e) => setInput(e.target.value)} 
-                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }} 
-                  placeholder={selectedImage ? "Recall from image context..." : "Talk to Chronos..."}
-                  className="flex-1 bg-transparent border-none focus:ring-0 resize-none py-3 px-3 text-sm md:text-base max-h-48 min-h-[44px]" 
-                  rows={1} 
-                />
-                <button 
-                  onClick={handleSend} 
-                  disabled={isLoading} 
-                  className={`p-3 rounded-2xl transition-all ${isLoading ? 'bg-slate-200 text-slate-400' : 'bg-indigo-600 text-white shadow-md active:scale-95 hover:bg-indigo-700'}`}
-                >
-                  <Send className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-
-            {selectedImage && (
-              <div className="flex gap-2 animate-in zoom-in-50 slide-in-from-bottom-2">
-                <div className="relative group">
-                  <img src={`data:${selectedImage.mimeType};base64,${selectedImage.data}`} className="h-14 w-14 object-cover rounded-xl border-2 border-white shadow-lg ring-1 ring-slate-200" />
-                  <button onClick={() => setSelectedImage(null)} className="absolute -top-2 -right-2 bg-slate-900 text-white p-1 rounded-full shadow-lg hover:bg-red-500 transition-colors"><X className="w-3.5 h-3.5" /></button>
+          
+          {isLoading && (
+            <div className="flex justify-start">
+              <div className="bg-white border border-slate-200 p-5 rounded-3xl rounded-tl-none shadow-sm flex items-center gap-4">
+                <div className="relative">
+                  <div className="w-8 h-8 bg-indigo-50 rounded-xl flex items-center justify-center">
+                    <Brain className="w-4 h-4 text-indigo-600 animate-pulse" />
+                  </div>
+                  <Loader2 className="w-10 h-10 text-indigo-200 animate-spin absolute -top-1 -left-1" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Neural Processing</span>
+                  <span className="text-[11px] text-slate-500 font-medium">Retrieving memories...</span>
                 </div>
               </div>
+            </div>
+          )}
+        </div>
+
+        {/* Input Controls */}
+        <div className="p-6 bg-white/80 backdrop-blur-xl border-t border-slate-200 z-10">
+          <div className="max-w-4xl mx-auto flex flex-col gap-4">
+            {selectedImage && (
+              <div className="flex items-center gap-4 p-3 bg-indigo-50/50 border border-indigo-100 rounded-2xl animate-in zoom-in-95 duration-200 shadow-sm">
+                <div className="w-16 h-16 rounded-xl overflow-hidden border-2 border-white shadow-md">
+                  <img 
+                    src={`data:${selectedImage.mimeType};base64,${selectedImage.data}`} 
+                    className="w-full h-full object-cover" 
+                    alt="Preview"
+                  />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-0.5">Visual Asset Detected</p>
+                  <p className="text-xs text-slate-500 font-medium truncate">Semantic indexing will include visual metadata.</p>
+                </div>
+                <button 
+                  onClick={() => setSelectedImage(null)}
+                  className="p-2 hover:bg-white text-slate-400 hover:text-red-500 rounded-xl transition-all border border-transparent hover:border-red-100"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             )}
+            
+            <div className="relative flex items-center">
+              <input 
+                type="text"
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && !isLoading && handleSendMessage()}
+                placeholder="Message Chronos... (Semantic retrieval is active)"
+                className="w-full pl-6 pr-32 py-5 bg-slate-50 border border-slate-200 rounded-[2rem] focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none text-[15px] font-medium placeholder:text-slate-400 shadow-inner"
+              />
+              <div className="absolute right-3 flex items-center gap-2">
+                <button 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="p-2.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-all border border-transparent hover:border-indigo-100"
+                  title="Attach Image"
+                >
+                  <ImageIcon className="w-6 h-6" />
+                </button>
+                <button 
+                  onClick={handleSendMessage}
+                  disabled={isLoading || (!inputText.trim() && !selectedImage)}
+                  className="p-2.5 bg-indigo-600 text-white rounded-full shadow-lg shadow-indigo-200 hover:bg-indigo-700 disabled:opacity-30 disabled:shadow-none transition-all active:scale-95"
+                >
+                  {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : <Send className="w-6 h-6" />}
+                </button>
+              </div>
+              <input 
+                type="file"
+                ref={fileInputRef}
+                onChange={handleImageSelect}
+                accept="image/*"
+                className="hidden"
+              />
+            </div>
+            <p className="text-[9px] text-center text-slate-400 font-bold uppercase tracking-widest">
+              Every turn is distilled into long-term memory via Semantic Pulse
+            </p>
           </div>
         </div>
       </main>
 
-      {showOntology && <OntologyPanel settings={ontology} onUpdate={setOntology} />}
+      {/* Right Configuration Sidebar */}
+      {showOntology && (
+        <OntologyPanel 
+          settings={settings} 
+          onUpdate={setSettings} 
+        />
+      )}
     </div>
   );
 };

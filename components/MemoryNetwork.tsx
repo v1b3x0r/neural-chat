@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
-import { Message, EpisodicMemory, VectorMatch } from '../types';
-import { BrainCircuit, MessageSquare, Sparkles, X, Info, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { Message, EpisodicMemory, VectorMatch, MessageImage } from '../types';
+import { BrainCircuit, MessageSquare, Sparkles, X, Info, ThumbsUp, ThumbsDown, Image as ImageIcon } from 'lucide-react';
 
 interface MemoryNetworkProps {
   recalledMessages: VectorMatch<Message>[];
@@ -10,23 +10,33 @@ interface MemoryNetworkProps {
   onRateMemory?: (id: string, rating: number) => void;
 }
 
+interface MemoryNode {
+  id: string;
+  type: 'fact' | 'history';
+  content: string;
+  sim: number;
+  rating?: number;
+  image?: MessageImage;
+}
+
 const MemoryNetwork: React.FC<MemoryNetworkProps> = ({ recalledMessages, recalledFacts, onClose, onRateMemory }) => {
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
 
-  const allNodes = [
+  const allNodes: MemoryNode[] = [
     ...recalledFacts.map(f => ({ 
       id: f.item.id, 
-      type: 'fact', 
+      type: 'fact' as const, 
       content: f.item.content, 
       sim: f.similarity,
       rating: f.item.relevanceRating 
     })),
     ...recalledMessages.map((m, i) => ({ 
       id: `msg-${i}`, 
-      type: 'history', 
+      type: 'history' as const, 
       content: m.item.content, 
       sim: m.similarity,
-      rating: undefined
+      rating: undefined,
+      image: m.item.image
     }))
   ];
 
@@ -58,21 +68,27 @@ const MemoryNetwork: React.FC<MemoryNetworkProps> = ({ recalledMessages, recalle
           </div>
 
           {/* Lines & Nodes */}
-          <svg className="absolute inset-0 w-full h-full pointer-events-none">
+          <svg className="absolute inset-0 w-full h-full pointer-events-none overflow-visible">
             {allNodes.map((node, i) => {
               const angle = (i / allNodes.length) * 2 * Math.PI - Math.PI / 2;
               const radius = 80;
               const x = 50 + Math.cos(angle) * radius * 0.4; // % based
               const y = 50 + Math.sin(angle) * radius * 0.35; // % based
+              const isHovered = hoveredNode === node.id;
+              const nodeColor = node.type === 'fact' ? '#10b981' : '#6366f1';
+              
               return (
                 <line 
                   key={`line-${i}`}
                   x1="50%" y1="50%" 
                   x2={`${x}%`} y2={`${y}%`} 
-                  stroke={node.type === 'fact' ? '#10b981' : '#6366f1'} 
-                  strokeWidth="1.5" 
-                  strokeDasharray="4 4" 
-                  className="opacity-20"
+                  stroke={nodeColor} 
+                  strokeWidth={isHovered ? "4" : "1.5"} 
+                  strokeDasharray={isHovered ? "0" : "4 4"} 
+                  className={`transition-all duration-300 ${
+                    isHovered ? 'opacity-100 animate-pulse' : 'opacity-20'
+                  }`}
+                  style={isHovered ? { filter: `drop-shadow(0 0 4px ${nodeColor})` } : {}}
                 />
               );
             })}
@@ -97,7 +113,7 @@ const MemoryNetwork: React.FC<MemoryNetworkProps> = ({ recalledMessages, recalle
                     ? (node.rating === 1 ? 'bg-emerald-600' : node.rating === -1 ? 'bg-rose-500' : 'bg-emerald-500')
                     : 'bg-slate-100 text-slate-500 shadow-slate-100'
                 } ${node.type === 'fact' ? 'text-white shadow-emerald-200' : ''} ${hoveredNode === node.id ? 'ring-4 ring-offset-2 ring-indigo-500 scale-125' : ''}`}>
-                  {node.type === 'fact' ? <BrainCircuit className="w-5 h-5" /> : <MessageSquare className="w-5 h-5" />}
+                  {node.type === 'fact' ? <BrainCircuit className="w-5 h-5" /> : (node.image ? <ImageIcon className="w-5 h-5 text-indigo-500" /> : <MessageSquare className="w-5 h-5" />)}
                 </div>
                 
                 {/* Micro-label */}
@@ -108,14 +124,28 @@ const MemoryNetwork: React.FC<MemoryNetworkProps> = ({ recalledMessages, recalle
                 </div>
 
                 {/* Content Tooltip */}
-                <div className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-56 p-3 bg-slate-900 text-white rounded-xl text-[10px] leading-relaxed shadow-2xl transition-all duration-200 pointer-events-none z-30 ${
+                <div className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-64 p-3 bg-slate-900 text-white rounded-xl text-[10px] leading-relaxed shadow-2xl transition-all duration-200 pointer-events-none z-30 ${
                   hoveredNode === node.id ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-2 scale-95'
                 }`}>
                   <div className="font-bold uppercase mb-1 flex justify-between">
                     <span>{node.type === 'fact' ? 'Distilled Fact' : 'Raw Context'}</span>
                     <span className="text-indigo-400">Match {node.sim.toFixed(2)}</span>
                   </div>
-                  {node.content}
+
+                  {node.image && (
+                    <div className="mb-2 relative rounded-lg overflow-hidden border border-white/10 bg-black/20">
+                      <img 
+                        src={`data:${node.image.mimeType};base64,${node.image.data}`} 
+                        className="w-full h-24 object-cover" 
+                        alt="Recalled visual context"
+                      />
+                      <div className="absolute top-1 right-1 bg-black/60 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider">Visual Memory</div>
+                    </div>
+                  )}
+
+                  <div className="max-h-24 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-700">
+                    {node.content}
+                  </div>
                   
                   {node.type === 'fact' && onRateMemory && (
                     <div className="mt-3 pt-2 border-t border-slate-700 flex items-center justify-between pointer-events-auto">

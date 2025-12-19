@@ -1,8 +1,7 @@
 
+// Fix: Use correct @google/genai imports and model selection for complex vs basic tasks
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { Message, EpisodicMemory, VectorMatch, ProspectiveMemory } from "../types";
-
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 const DEFAULT_SYSTEM_INSTRUCTION = `You are Chronos, a high-intelligence AI with Long-term Temporal Memory and Visual Perception.
 You use "Diverse Semantic Retrieval" to recall both raw conversations and distilled facts from your local Episodic Memory store.
@@ -20,9 +19,11 @@ Guidelines:
  * Describe an image to get a text representation for semantic embedding
  */
 export const getImageDescription = async (image: { data: string, mimeType: string }): Promise<string> => {
+  // Always instantiate GoogleGenAI inside the function to use the current API key from process.env.API_KEY
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-3-flash-preview", // Basic visual description task
       contents: [{
         parts: [
           { inlineData: image },
@@ -42,14 +43,16 @@ export const getImageDescription = async (image: { data: string, mimeType: strin
  */
 export const getEmbedding = async (text: string): Promise<number[]> => {
   if (!text.trim()) return [];
+  // Always instantiate GoogleGenAI inside the function to use the current API key from process.env.API_KEY
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   try {
     const result = await ai.models.embedContent({
       model: "text-embedding-004",
       contents: { parts: [{ text }] },
     });
-    // Fix: In @google/genai SDK, EmbedContentResponse uses the property name 'embeddings' for the ContentEmbedding object
-    if (result.embeddings && result.embeddings.values) {
-      return result.embeddings.values;
+    // In @google/genai SDK, EmbedContentResponse uses the property name 'embedding' for the ContentEmbedding object
+    if (result.embedding && result.embedding.values) {
+      return result.embedding.values;
     }
     return [];
   } catch (error: any) {
@@ -74,52 +77,76 @@ const cosineSimilarity = (vecA: number[], vecB: number[]): number => {
   return dotProduct / (mA * mB);
 };
 
+/**
+ * Maximal Marginal Relevance (MMR) Search
+ * Balances relevance (similarity to query) with diversity (dissimilarity to already selected items).
+ */
 export const mmrSearch = <T extends { embedding?: number[]; timestamp: number; relevanceRating?: number }>(
   queryEmbedding: number[],
   items: T[],
   topK: number = 3,
   lambda: number = 0.5,
-  decayRate: number = 1.0
+  decayRate: number = 1.0,
+  similarityThreshold: number = 0.4
 ): VectorMatch<T>[] => {
   const candidates = items.filter(item => item.embedding && item.embedding.length > 0);
   if (candidates.length === 0) return [];
 
   const initialScores = candidates.map(item => {
     const similarity = cosineSimilarity(queryEmbedding, item.embedding!);
+    
+    // Temporal decay calculation
     const timeDiffDays = (Date.now() - item.timestamp) / (1000 * 60 * 60 * 24);
     const decay = Math.exp(-timeDiffDays * decayRate);
     
-    // Incorporate user feedback: boost if rated 1, penalize if rated -1
-    const ratingMultiplier = item.relevanceRating === 1 ? 1.2 : (item.relevanceRating === -1 ? 0.5 : 1.0);
+    // User feedback boost
+    const ratingMultiplier = item.relevanceRating === 1 ? 1.25 : (item.relevanceRating === -1 ? 0.5 : 1.0);
     
-    return { item, score: similarity * (0.8 + 0.2 * decay) * ratingMultiplier, similarity };
+    // Final relevance score combined with temporal weight and feedback
+    const score = similarity * (0.7 + 0.3 * decay) * ratingMultiplier;
+    
+    return { item, score, similarity };
   });
 
-  const selected: { item: T; similarity: number }[] = [];
+  // Fix: Explicitly type selected as VectorMatch<T>[] to prevent inference as the constraint type
+  const selected: VectorMatch<T>[] = [];
   const remaining = [...initialScores];
 
   while (selected.length < topK && remaining.length > 0) {
-    let bestScore = -Infinity;
+    let bestMmrScore = -Infinity;
     let bestIndex = -1;
+
     for (let i = 0; i < remaining.length; i++) {
       const candidate = remaining[i];
-      let maxDiversitySim = 0;
+      
+      // Diversity term: find the max similarity with any already selected item
+      let maxSimWithSelected = 0;
       for (const s of selected) {
         const sim = cosineSimilarity(candidate.item.embedding!, s.item.embedding!);
-        if (sim > maxDiversitySim) maxDiversitySim = sim;
+        if (sim > maxSimWithSelected) maxSimWithSelected = sim;
       }
-      const mmrScore = lambda * candidate.score - (1 - lambda) * maxDiversitySim;
-      if (mmrScore > bestScore) {
-        bestScore = mmrScore;
+      
+      // MMR Equation: lambda * relevance - (1 - lambda) * redundancy
+      const mmrScore = lambda * candidate.score - (1 - lambda) * maxSimWithSelected;
+      
+      if (mmrScore > bestMmrScore) {
+        bestMmrScore = mmrScore;
         bestIndex = i;
       }
     }
+
     if (bestIndex !== -1) {
       const winner = remaining.splice(bestIndex, 1)[0];
-      if (winner.similarity > 0.4) {
+      // Filter out low relevance items based on the threshold
+      if (winner.similarity >= similarityThreshold) {
         selected.push({ item: winner.item, similarity: winner.similarity });
-      } else { break; }
-    } else { break; }
+      } else {
+        // If the best remaining doesn't pass threshold, stop search
+        break;
+      }
+    } else {
+      break;
+    }
   }
   return selected;
 };
@@ -135,8 +162,11 @@ export async function* chatWithMemoryStream(
   prospective: ProspectiveMemory[] = [],
   customSystemInstruction?: string
 ) {
+  // Always instantiate GoogleGenAI inside the function to use the current API key
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
   const factsContext = recalledFacts.length > 0
-    ? `\n--- DISTILLED FACTS RECALLED ---\n${recalledFacts.map(f => `[FACT: ${f.item.content}]`).join('\n')}\n`
+    ? `\n--- DISTILLED FACTS RECALLED ---\n${recalledFacts.map(f => `[FACT: ${f.item.content}] (Similarity: ${(f.similarity * 100).toFixed(1)}%)`).join('\n')}\n`
     : "";
 
   const historyContext = recalledMessages.length > 0
@@ -163,8 +193,9 @@ export async function* chatWithMemoryStream(
     return { role: m.role, parts };
   });
 
+  // Fix: Use gemini-3-pro-preview for tasks requiring high-reasoning and memory retrieval context integration
   const stream = await ai.models.generateContentStream({
-    model: "gemini-3-flash-preview",
+    model: "gemini-3-pro-preview",
     contents,
     config: {
       systemInstruction: baseInstruction + factsContext + historyContext + intentContext,
@@ -188,6 +219,8 @@ export const extractMemories = async (
   customConstraint: string = ""
 ): Promise<Partial<EpisodicMemory>[]> => {
   if (latestMessages.length === 0) return [];
+  // Always instantiate GoogleGenAI inside the function to use the current API key
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const prompt = `Analyze this chat segment and extract key facts for long-term Episodic Memory.
   ${customConstraint ? `Constraint: ${customConstraint}` : ""}
   Return JSON list: content, importance (1-10), tags.`;
@@ -219,6 +252,8 @@ export const extractIntents = async (
   latestMessages: Message[]
 ): Promise<Partial<ProspectiveMemory>[]> => {
   if (latestMessages.length === 0) return [];
+  // Always instantiate GoogleGenAI inside the function to use the current API key
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const prompt = `Analyze the chat and identify "Prospective Intents".
   These are things mentioned that should be done LATER, questions to be answered LATER, or topics planned for FUTURE discussion.
   Ignore things already finished. Focus on "we should...", "remind me to...", "later let's...".
