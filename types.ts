@@ -4,23 +4,37 @@ export interface MessageImage {
   mimeType: string;
 }
 
+export interface GroundingLink {
+  uri: string;
+  title: string;
+}
+
+export interface CognitiveInsight {
+  reasoning: string; // การวิเคราะห์ว่าทำไมถึงเลือกความจำเหล่านี้มา
+  connections: string[]; // เส้นใยความเชื่อมโยงที่ตรวจพบ
+  anticipation: string; // สิ่งที่ระบบคาดการณ์จากบริบท (Non-linear future)
+}
+
 export interface Message {
   role: 'user' | 'model';
   content: string;
   timestamp: number;
-  embedding?: number[]; // Semantic vector
-  image?: MessageImage; // Optional image data
-  relevanceRating?: number; // User feedback: 1 for accurate/useful, -1 for irrelevant/wrong, 0 for neutral
+  embedding?: number[]; 
+  image?: MessageImage;
+  relevanceRating?: number;
+  groundingLinks?: GroundingLink[];
+  insight?: CognitiveInsight; // ผลการคิดก่อนตอบ
 }
 
 export interface EpisodicMemory {
   id: string;
   content: string;
-  importance: number; // 1-10
+  importance: number; 
   timestamp: number;
   tags: string[];
-  embedding?: number[]; // Semantic vector for the fact
-  relevanceRating?: number; // User feedback: 1 for accurate/useful, -1 for irrelevant/wrong, 0 for neutral
+  embedding?: number[];
+  relevanceRating?: number;
+  image?: MessageImage;
 }
 
 export interface ProspectiveMemory {
@@ -29,7 +43,7 @@ export interface ProspectiveMemory {
   status: 'pending' | 'resolved' | 'abandoned';
   priority: number;
   timestamp: number;
-  context_clue: string; // Keywords that trigger this intent
+  context_clue: string;
 }
 
 export interface VectorMatch<T> {
@@ -40,8 +54,8 @@ export interface VectorMatch<T> {
 export interface OntologySettings {
   importanceThreshold: number;
   decayRate: number;
-  mmrLambda: number; // MMR diversity parameter: 0 for max diversity, 1 for max relevance
-  similarityThreshold: number; // Minimum cosine similarity for retrieval
+  mmrLambda: number; 
+  similarityThreshold: number; 
   focusEntities: string[];
   customConstraint: string;
   systemPrompt: string;
