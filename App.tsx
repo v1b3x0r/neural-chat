@@ -1,3 +1,4 @@
+
 // Fix: Implementing the main App component with memory management, retrieval, and chat logic
 import React, { useState, useEffect, useRef } from 'react';
 import { 
@@ -26,14 +27,16 @@ import {
   Settings, 
   X, 
   Loader2, 
-  ChevronRight,
   Database,
-  Search,
   MessageSquare,
-  Sparkles
+  Sparkles,
+  Download,
+  Upload,
+  Trash2
 } from 'lucide-react';
 
 const STORAGE_KEY = 'chronos_chat_session';
+const SETTINGS_KEY = 'chronos_ontology_settings';
 
 const DEFAULT_SETTINGS: OntologySettings = {
   importanceThreshold: 5,
@@ -63,18 +66,29 @@ const App: React.FC = () => {
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
 
   // Initialize and load session from local storage
   useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
+    const savedSession = localStorage.getItem(STORAGE_KEY);
+    const savedSettings = localStorage.getItem(SETTINGS_KEY);
+    
+    if (savedSession) {
       try {
-        const parsed: ChatSession = JSON.parse(saved);
+        const parsed: ChatSession = JSON.parse(savedSession);
         setMessages(parsed.messages || []);
         setMemories(parsed.memories || []);
         setProspective(parsed.prospective || []);
       } catch (e) {
         console.error("Failed to load session", e);
+      }
+    }
+    
+    if (savedSettings) {
+      try {
+        setSettings(JSON.parse(savedSettings));
+      } catch (e) {
+        console.error("Failed to load settings", e);
       }
     }
   }, []);
@@ -85,12 +99,57 @@ const App: React.FC = () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
   }, [messages, memories, prospective]);
 
+  // Persist settings
+  useEffect(() => {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  }, [settings]);
+
   // Auto-scroll to the bottom of the chat
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  const handleExport = () => {
+    const fullState = {
+      messages,
+      memories,
+      prospective,
+      settings,
+      exportDate: new Date().toISOString(),
+      version: "2.0"
+    };
+    const blob = new Blob([JSON.stringify(fullState, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `chronos_memory_${new Date().toISOString().split('T')[0]}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = JSON.parse(event.target?.result as string);
+        if (data.messages) setMessages(data.messages);
+        if (data.memories) setMemories(data.memories);
+        if (data.prospective) setProspective(data.prospective);
+        if (data.settings) setSettings(data.settings);
+        alert("Chronos Neural State synchronized successfully!");
+      } catch (err) {
+        alert("Failed to parse memory file. Ensure it is a valid Chronos JSON.");
+      }
+    };
+    reader.readAsText(file);
+    // Reset input
+    e.target.value = '';
+  };
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -115,18 +174,16 @@ const App: React.FC = () => {
     setIsLoading(true);
 
     try {
-      // 1. Describe image if present for semantic retrieval context
       let visualContext = "";
       if (userImage) {
         visualContext = await getImageDescription(userImage);
       }
 
-      // 2. Get query embedding (incorporating visual context)
       const queryText = userContent + (visualContext ? ` [Visual: ${visualContext}]` : "");
       const queryEmbedding = await getEmbedding(queryText);
 
-      // 3. Neural Retrieval (MMR)
-      const recalledMsg = mmrSearch(
+      // Fix: Explicitly provide Message type parameter to correctly type the retrieved semantic matches.
+      const recalledMsg = mmrSearch<Message>(
         queryEmbedding, 
         messages, 
         4, 
@@ -134,7 +191,8 @@ const App: React.FC = () => {
         settings.decayRate, 
         settings.similarityThreshold
       );
-      const recalledFacts = mmrSearch(
+      // Fix: Explicitly provide EpisodicMemory type parameter to correctly type the retrieved semantic matches.
+      const recalledFacts = mmrSearch<EpisodicMemory>(
         queryEmbedding, 
         memories, 
         5, 
@@ -144,7 +202,6 @@ const App: React.FC = () => {
       );
 
       setRecalledData({ messages: recalledMsg, facts: recalledFacts });
-      // Pulse the network visualization if there's any recall
       if (recalledMsg.length > 0 || recalledFacts.length > 0) {
         setShowNetwork(true);
       }
@@ -159,7 +216,6 @@ const App: React.FC = () => {
 
       setMessages(prev => [...prev, newUserMessage]);
 
-      // 4. Chat with retrieved memory context
       const modelPlaceholder: Message = {
         role: 'model',
         content: '',
@@ -185,7 +241,6 @@ const App: React.FC = () => {
         });
       }
 
-      // 5. Cognitive Distillation: Extract long-term facts and future intents
       const responseEmbedding = await getEmbedding(fullResponse);
       setMessages(prev => {
         const last = prev[prev.length - 1];
@@ -194,13 +249,11 @@ const App: React.FC = () => {
 
       const chatSegment = [newUserMessage, { ...modelPlaceholder, content: fullResponse }];
       
-      // Extraction (Asynchronous)
       const [extractedMemories, extractedIntents] = await Promise.all([
         extractMemories(chatSegment, settings.customConstraint),
         extractIntents(chatSegment)
       ]);
 
-      // Process and save new memories
       const newMemories: EpisodicMemory[] = [];
       for (const item of extractedMemories) {
         if (item.importance && item.importance >= settings.importanceThreshold && item.content) {
@@ -218,7 +271,6 @@ const App: React.FC = () => {
       }
       if (newMemories.length > 0) setMemories(prev => [...prev, ...newMemories]);
 
-      // Process and save new prospective intents
       const newIntents: ProspectiveMemory[] = extractedIntents.map(i => ({
         id: crypto.randomUUID(),
         intent: i.intent || "",
@@ -245,9 +297,13 @@ const App: React.FC = () => {
   };
 
   const clearChat = () => {
-    if (window.confirm("Clear session history? Stored LTM (memories) will persist.")) {
+    if (window.confirm("Purge ALL neural data? This includes LTM memories and settings.")) {
       setMessages([]);
+      setMemories([]);
       setProspective([]);
+      setSettings(DEFAULT_SETTINGS);
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(SETTINGS_KEY);
     }
   };
 
@@ -258,7 +314,7 @@ const App: React.FC = () => {
         <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-indigo-600 text-white">
           <div className="flex items-center gap-2">
             <Brain className="w-6 h-6" />
-            <h1 className="font-black tracking-tighter text-2xl">CHRONOS</h1>
+            <h1 className="font-black tracking-tighter text-2xl uppercase">Chronos</h1>
           </div>
         </div>
         
@@ -266,30 +322,43 @@ const App: React.FC = () => {
           <MemoryList memories={memories} onDelete={deleteMemory} />
         </div>
 
-        {/* Prospective Memory (Task) List */}
-        <div className="p-4 bg-slate-50 border-t border-slate-100">
-          <div className="flex items-center justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">
-            <span>Prospective Stack</span>
-            <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">{prospective.filter(p => p.status === 'pending').length}</span>
+        {/* Action Controls */}
+        <div className="p-4 bg-slate-50 border-t border-slate-100 space-y-2">
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={handleExport}
+              className="flex-1 flex items-center justify-center gap-2 py-2 px-3 bg-white border border-slate-200 rounded-xl text-[10px] font-black text-slate-500 uppercase tracking-widest hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-100 transition-all"
+            >
+              <Download className="w-3.5 h-3.5" />
+              Export
+            </button>
+            <button 
+              onClick={() => importInputRef.current?.click()}
+              className="flex-1 flex items-center justify-center gap-2 py-2 px-3 bg-white border border-slate-200 rounded-xl text-[10px] font-black text-slate-500 uppercase tracking-widest hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-100 transition-all"
+            >
+              <Upload className="w-3.5 h-3.5" />
+              Import
+            </button>
+            <input 
+              type="file" 
+              ref={importInputRef} 
+              onChange={handleImport} 
+              accept="application/json" 
+              className="hidden" 
+            />
           </div>
-          <div className="space-y-2 max-h-32 overflow-y-auto pr-1">
-            {prospective.filter(p => p.status === 'pending').length === 0 ? (
-              <p className="text-[10px] text-slate-400 italic text-center py-2">No pending intents...</p>
-            ) : (
-              prospective.filter(p => p.status === 'pending').map(p => (
-                <div key={p.id} className="p-2 bg-white rounded-lg border border-slate-200 text-[10px] flex items-center gap-2 hover:border-amber-200 transition-colors shadow-sm">
-                  <div className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
-                  <span className="truncate text-slate-600 font-medium">{p.intent}</span>
-                </div>
-              ))
-            )}
-          </div>
+          <button 
+            onClick={clearChat}
+            className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-rose-50 border border-rose-100 rounded-xl text-[10px] font-black text-rose-500 uppercase tracking-widest hover:bg-rose-500 hover:text-white transition-all"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            Purge All Data
+          </button>
         </div>
       </div>
 
       {/* Main Experience Area */}
       <main className="flex-1 flex flex-col relative min-w-0">
-        {/* Navigation Bar */}
         <header className="h-16 flex items-center justify-between px-6 bg-white/80 backdrop-blur-md border-b border-slate-200 shrink-0 z-20 sticky top-0">
           <div className="flex items-center gap-4">
             <div className="lg:hidden flex items-center gap-2">
@@ -323,18 +392,9 @@ const App: React.FC = () => {
             >
               <Settings className="w-5 h-5" />
             </button>
-            <div className="w-px h-6 bg-slate-200 mx-1" />
-            <button 
-              onClick={clearChat}
-              className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
-              title="Reset Session"
-            >
-              <X className="w-5 h-5" />
-            </button>
           </div>
         </header>
 
-        {/* Neural Context Visualization Overlay */}
         {showNetwork && (
           <MemoryNetwork 
             recalledMessages={recalledData.messages} 
@@ -344,7 +404,6 @@ const App: React.FC = () => {
           />
         )}
 
-        {/* Chat History */}
         <div 
           ref={scrollRef}
           className="flex-1 overflow-y-auto p-6 md:p-12 space-y-10 scroll-smooth"
@@ -362,18 +421,8 @@ const App: React.FC = () => {
               <h2 className="text-3xl font-black text-slate-800 tracking-tight">Cognitive Memory Assistant</h2>
               <p className="text-slate-500 mt-4 text-sm leading-relaxed font-medium">
                 I integrate every conversation into a vectorized knowledge base. 
-                Upload images or share complex ideas; I'll recall them precisely when they become relevant.
+                State is persisted locally and can be exported as JSON for backup.
               </p>
-              <div className="grid grid-cols-2 gap-3 mt-10 w-full">
-                <div className="p-4 bg-white border border-slate-200 rounded-2xl text-left shadow-sm">
-                  <p className="text-[10px] font-black text-indigo-600 uppercase mb-1">Visual Indexing</p>
-                  <p className="text-[11px] text-slate-500">"What was that chart I showed you yesterday?"</p>
-                </div>
-                <div className="p-4 bg-white border border-slate-200 rounded-2xl text-left shadow-sm">
-                  <p className="text-[10px] font-black text-emerald-600 uppercase mb-1">Temporal Recall</p>
-                  <p className="text-[11px] text-slate-500">"Summarize our discussion on AI ethics from last week."</p>
-                </div>
-              </div>
             </div>
           ) : (
             messages.map((msg, i) => (
@@ -395,17 +444,10 @@ const App: React.FC = () => {
                     )}
                     <div className="whitespace-pre-wrap font-medium">{msg.content}</div>
                   </div>
-                  
                   <div className={`flex items-center gap-3 px-1 opacity-0 group-hover:opacity-100 transition-opacity ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
                     <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">
                       {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>
-                    {msg.embedding && (
-                      <div className="flex items-center gap-1 text-[8px] bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full uppercase font-black border border-indigo-100/50">
-                        <Database className="w-2 h-2" />
-                        Embedded
-                      </div>
-                    )}
                   </div>
                 </div>
               </div>
@@ -415,43 +457,21 @@ const App: React.FC = () => {
           {isLoading && (
             <div className="flex justify-start">
               <div className="bg-white border border-slate-200 p-5 rounded-3xl rounded-tl-none shadow-sm flex items-center gap-4">
-                <div className="relative">
-                  <div className="w-8 h-8 bg-indigo-50 rounded-xl flex items-center justify-center">
-                    <Brain className="w-4 h-4 text-indigo-600 animate-pulse" />
-                  </div>
-                  <Loader2 className="w-10 h-10 text-indigo-200 animate-spin absolute -top-1 -left-1" />
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Neural Processing</span>
-                  <span className="text-[11px] text-slate-500 font-medium">Retrieving memories...</span>
-                </div>
+                <Loader2 className="w-6 h-6 text-indigo-600 animate-spin" />
+                <span className="text-[11px] text-slate-500 font-bold uppercase tracking-widest">Neural Processing...</span>
               </div>
             </div>
           )}
         </div>
 
-        {/* Input Controls */}
         <div className="p-6 bg-white/80 backdrop-blur-xl border-t border-slate-200 z-10">
           <div className="max-w-4xl mx-auto flex flex-col gap-4">
             {selectedImage && (
               <div className="flex items-center gap-4 p-3 bg-indigo-50/50 border border-indigo-100 rounded-2xl animate-in zoom-in-95 duration-200 shadow-sm">
                 <div className="w-16 h-16 rounded-xl overflow-hidden border-2 border-white shadow-md">
-                  <img 
-                    src={`data:${selectedImage.mimeType};base64,${selectedImage.data}`} 
-                    className="w-full h-full object-cover" 
-                    alt="Preview"
-                  />
+                  <img src={`data:${selectedImage.mimeType};base64,${selectedImage.data}`} className="w-full h-full object-cover" alt="Preview" />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-0.5">Visual Asset Detected</p>
-                  <p className="text-xs text-slate-500 font-medium truncate">Semantic indexing will include visual metadata.</p>
-                </div>
-                <button 
-                  onClick={() => setSelectedImage(null)}
-                  className="p-2 hover:bg-white text-slate-400 hover:text-red-500 rounded-xl transition-all border border-transparent hover:border-red-100"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+                <button onClick={() => setSelectedImage(null)} className="p-2 hover:bg-white text-slate-400 hover:text-red-500 rounded-xl transition-all"><X className="w-5 h-5" /></button>
               </div>
             )}
             
@@ -461,47 +481,22 @@ const App: React.FC = () => {
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && !isLoading && handleSendMessage()}
-                placeholder="Message Chronos... (Semantic retrieval is active)"
+                placeholder="Message Chronos..."
                 className="w-full pl-6 pr-32 py-5 bg-slate-50 border border-slate-200 rounded-[2rem] focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none text-[15px] font-medium placeholder:text-slate-400 shadow-inner"
               />
               <div className="absolute right-3 flex items-center gap-2">
-                <button 
-                  onClick={() => fileInputRef.current?.click()}
-                  className="p-2.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-all border border-transparent hover:border-indigo-100"
-                  title="Attach Image"
-                >
-                  <ImageIcon className="w-6 h-6" />
-                </button>
-                <button 
-                  onClick={handleSendMessage}
-                  disabled={isLoading || (!inputText.trim() && !selectedImage)}
-                  className="p-2.5 bg-indigo-600 text-white rounded-full shadow-lg shadow-indigo-200 hover:bg-indigo-700 disabled:opacity-30 disabled:shadow-none transition-all active:scale-95"
-                >
+                <button onClick={() => fileInputRef.current?.click()} className="p-2.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-all border border-transparent hover:border-indigo-100"><ImageIcon className="w-6 h-6" /></button>
+                <button onClick={handleSendMessage} disabled={isLoading || (!inputText.trim() && !selectedImage)} className="p-2.5 bg-indigo-600 text-white rounded-full shadow-lg hover:bg-indigo-700 disabled:opacity-30 transition-all active:scale-95">
                   {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : <Send className="w-6 h-6" />}
                 </button>
               </div>
-              <input 
-                type="file"
-                ref={fileInputRef}
-                onChange={handleImageSelect}
-                accept="image/*"
-                className="hidden"
-              />
+              <input type="file" ref={fileInputRef} onChange={handleImageSelect} accept="image/*" className="hidden" />
             </div>
-            <p className="text-[9px] text-center text-slate-400 font-bold uppercase tracking-widest">
-              Every turn is distilled into long-term memory via Semantic Pulse
-            </p>
           </div>
         </div>
       </main>
 
-      {/* Right Configuration Sidebar */}
-      {showOntology && (
-        <OntologyPanel 
-          settings={settings} 
-          onUpdate={setSettings} 
-        />
-      )}
+      {showOntology && <OntologyPanel settings={settings} onUpdate={setSettings} />}
     </div>
   );
 };
