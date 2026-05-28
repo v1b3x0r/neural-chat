@@ -5,8 +5,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { fetchModels, type ModelInfo } from '@/lib/models';
 import { getStarredModels, setStarredModels, getActiveModel, setActiveModel } from '@/lib/config';
 import { resetEngines } from '@/lib/engine';
+import { usePalette } from '@/lib/theme';
 
 export default function Models() {
+  const c = usePalette();
   const [all, setAll] = useState<ModelInfo[]>([]);
   const [q, setQ] = useState('');
   const [loading, setLoading] = useState(true);
@@ -42,20 +44,20 @@ export default function Models() {
   }, [all, q, starred]);
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: c.bg }]}>
       <TextInput
-        style={styles.search}
+        style={[styles.search, { backgroundColor: c.surface, color: c.text }]}
         placeholder="ค้นหา model..."
-        placeholderTextColor="#999"
+        placeholderTextColor={c.faint}
         value={q}
         onChangeText={setQ}
         autoCapitalize="none"
         autoCorrect={false}
       />
       {loading ? (
-        <ActivityIndicator style={{ marginTop: 40 }} />
+        <ActivityIndicator style={{ marginTop: 40 }} color={c.accent} />
       ) : err ? (
-        <Text style={styles.err}>โหลด model ไม่ได้: {err}</Text>
+        <Text style={[styles.err, { color: '#e0564b' }]}>โหลด model ไม่ได้: {err}</Text>
       ) : (
         <FlatList
           data={list}
@@ -66,15 +68,15 @@ export default function Models() {
             const isActive = item.id === active;
             const isStar = starred.includes(item.id);
             return (
-              <View style={styles.row}>
+              <View style={[styles.row, { borderBottomColor: c.border }]}>
                 <Pressable style={{ flex: 1 }} onPress={() => choose(item.id)}>
-                  <Text style={[styles.id, isActive && styles.activeId]} numberOfLines={1}>
+                  <Text style={[styles.id, { color: isActive ? c.accent : c.text }]} numberOfLines={1}>
                     {isActive ? '✓ ' : ''}{item.id}
                   </Text>
-                  <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
+                  <Text style={[styles.name, { color: c.subtext }]} numberOfLines={1}>{item.name}</Text>
                 </Pressable>
                 <Pressable onPress={() => toggleStar(item.id)} hitSlop={12} style={styles.star}>
-                  <Ionicons name={isStar ? 'star' : 'star-outline'} size={22} color={isStar ? '#f5b301' : '#c4c4c4'} />
+                  <Ionicons name={isStar ? 'star' : 'star-outline'} size={22} color={isStar ? '#f5b301' : c.faint} />
                 </Pressable>
               </View>
             );
@@ -87,14 +89,10 @@ export default function Models() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  search: {
-    margin: 12, paddingHorizontal: 16, paddingVertical: 11, fontSize: 16,
-    borderRadius: 22, borderCurve: 'continuous', backgroundColor: 'rgba(127,127,127,0.12)',
-  },
-  err: { textAlign: 'center', marginTop: 40, color: '#c0392b', paddingHorizontal: 24 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(127,127,127,0.15)' },
+  search: { margin: 12, paddingHorizontal: 16, paddingVertical: 11, fontSize: 16, borderRadius: 22, borderCurve: 'continuous' },
+  err: { textAlign: 'center', marginTop: 40, paddingHorizontal: 24 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth },
   id: { fontSize: 15, fontWeight: '500' },
-  activeId: { color: '#7c5cff' },
-  name: { fontSize: 12, color: '#999', marginTop: 2 },
+  name: { fontSize: 12, marginTop: 2 },
   star: { padding: 2 },
 });

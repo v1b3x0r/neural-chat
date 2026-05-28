@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import {
   View, Text, TextInput, FlatList, Pressable, KeyboardAvoidingView,
-  ActivityIndicator, StyleSheet, Alert,
+  ActivityIndicator, StyleSheet,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, Link, router, useFocusEffect } from 'expo-router';
@@ -13,7 +13,9 @@ import { getEngine } from '@/lib/engine';
 import { getChatKey, getActiveModel } from '@/lib/config';
 import { shortModel } from '@/lib/models';
 import { getActivePersona, getActivePersonaId, subscribeActivePersona } from '@/lib/personas';
+import { usePalette } from '@/lib/theme';
 import { Icon } from '@/components/icon';
+import { ActionSheet, type SheetAction } from '@/components/action-sheet';
 
 const TH_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
 
@@ -21,12 +23,10 @@ function timeLabel(ts: number): string {
   const d = new Date(ts);
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
-
 function dayKey(ts: number): string {
   const d = new Date(ts);
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 }
-
 function dateLabel(ts: number): string {
   const d = new Date(ts);
   const now = new Date();
@@ -39,7 +39,6 @@ function dateLabel(ts: number): string {
 }
 
 type Row = { type: 'date'; key: string; ts: number } | { type: 'msg'; key: string; m: Message };
-
 function buildRows(messages: Message[]): Row[] {
   const rows: Row[] = [];
   let lastDay = '';
@@ -57,14 +56,15 @@ export default function Chat() {
   const [busy, setBusy] = useState(false);
   const [hasKey, setHasKey] = useState(true);
   const [model, setModel] = useState(getActiveModel());
+  const [sheet, setSheet] = useState<SheetAction[] | null>(null);
   const activeId = useSyncExternalStore(subscribeActivePersona, getActivePersonaId, getActivePersonaId);
   const persona = getActivePersona();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
+  const c = usePalette();
 
   const eng = () => getEngine(persona.id, persona.systemPrompt);
 
-  // Reload the thread when the active persona changes (drawer switch) or on mount.
   useEffect(() => {
     (async () => {
       const { engine, storage } = await eng();
@@ -74,7 +74,6 @@ export default function Chat() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeId]);
 
-  // Refresh model + key status when returning from Models/Settings.
   useFocusEffect(useCallback(() => {
     setModel(getActiveModel());
     (async () => setHasKey(!!(await getChatKey())))();
@@ -116,8 +115,6 @@ export default function Chat() {
     streamRespond(text);
   };
 
-  // Retry: rewind to the user message that produced this reply, then respond again
-  // (respond() re-adds the user message, so nothing is duplicated).
   const retry = async (modelMsg: Message) => {
     if (busy) return;
     const { engine, storage } = await eng();
@@ -134,26 +131,22 @@ export default function Chat() {
   const onLongPress = (m: Message) => {
     if (busy || m.text === '') return;
     if (m.role === 'user') {
-      Alert.alert('ข้อความนี้', m.text.slice(0, 80), [
-        { text: '✏️ แก้ไข', onPress: async () => { const { engine } = await eng(); await engine.rewindTo(m.id); await refresh(); setInput(m.text); } },
-        { text: '⏪ ย้อนมาตรงนี้', style: 'destructive', onPress: async () => { const { engine } = await eng(); await engine.rewindTo(m.id); await refresh(); } },
-        { text: 'ยกเลิก', style: 'cancel' },
+      setSheet([
+        { label: '✏️  แก้ไข', onPress: async () => { const { engine } = await eng(); await engine.rewindTo(m.id); await refresh(); setInput(m.text); } },
+        { label: '⏪  ย้อนมาตรงนี้', destructive: true, onPress: async () => { const { engine } = await eng(); await engine.rewindTo(m.id); await refresh(); } },
       ]);
     } else {
-      Alert.alert('คำตอบนี้', undefined, [
-        { text: '↻ ลองใหม่', onPress: () => retry(m) },
-        { text: 'ยกเลิก', style: 'cancel' },
-      ]);
+      setSheet([{ label: '↻  ลองใหม่', onPress: () => retry(m) }]);
     }
   };
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: c.bg }]}>
       <View style={{ flex: 1 }}>
         {messages.length === 0 ? (
           <View style={styles.empty}>
-            <Icon name="sparkles" size={44} color="#7c5cff" />
-            <Text style={styles.greeting}>คุยอะไรดี</Text>
+            <Icon name="sparkles" size={44} color={c.accent} />
+            <Text style={[styles.greeting, { color: c.subtext }]}>คุยอะไรดี</Text>
           </View>
         ) : (
           <FlatList
@@ -165,7 +158,7 @@ export default function Chat() {
               item.type === 'date' ? (
                 <DateBadge label={dateLabel(item.ts)} />
               ) : (
-                <Pressable onLongPress={() => onLongPress(item.m)} delayLongPress={300}>
+                <Pressable onLongPress={() => onLongPress(item.m)} delayLongPress={280}>
                   <Bubble m={item.m} />
                 </Pressable>
               )
@@ -175,10 +168,9 @@ export default function Chat() {
       </View>
 
       <KeyboardAvoidingView behavior="padding" keyboardVerticalOffset={0}>
-        {/* the "invisible div": gradient fades the messages out behind the floating pill */}
         <LinearGradient
           pointerEvents="none"
-          colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.85)', '#fff']}
+          colors={[c.bg + '00', c.bg + 'd9', c.bg]}
           style={styles.gradient}
         />
         {!hasKey && (
@@ -189,77 +181,76 @@ export default function Chat() {
           </Link>
         )}
         <View style={[styles.composer, { paddingBottom: insets.bottom + 10 }]}>
-          <View style={styles.pill}>
+          <View style={[styles.pill, { backgroundColor: c.surface }]}>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { color: c.text }]}
               value={input}
               onChangeText={setInput}
               placeholder="พิมพ์ยาวๆ ไปเลย..."
-              placeholderTextColor="#9a9a9a"
+              placeholderTextColor={c.faint}
               multiline
             />
           </View>
           <GlassView isInteractive style={styles.sendGlass}>
-            <Pressable onPress={send} disabled={busy} style={styles.send}>
-              {busy ? <ActivityIndicator color="#fff" /> : <Icon name="send" size={20} color="#fff" />}
+            <Pressable onPress={send} disabled={busy} style={[styles.send, { backgroundColor: c.accent }]}>
+              {busy ? <ActivityIndicator color={c.onAccent} /> : <Icon name="send" size={20} color={c.onAccent} />}
             </Pressable>
           </GlassView>
         </View>
       </KeyboardAvoidingView>
 
-      {/* floating hamburger — no header bar */}
       <Pressable
         onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
         hitSlop={12}
         style={[styles.menuWrap, { top: insets.top + 6 }]}
       >
         <GlassView isInteractive style={styles.menuBtn}>
-          <Icon name="menu" size={22} color="#333" />
+          <Icon name="menu" size={22} color={c.glassIcon} />
         </GlassView>
       </Pressable>
 
-      {/* floating model selector — top center, taps through to the picker */}
       <View pointerEvents="box-none" style={[styles.topCenter, { top: insets.top + 8 }]}>
-        <Pressable onPress={() => router.push('/models')} hitSlop={8} style={styles.modelChip}>
-          <Text style={styles.modelChipText} numberOfLines={1}>{shortModel(model)} ▾</Text>
+        <Pressable onPress={() => router.push('/models')} hitSlop={8} style={[styles.modelChip, { backgroundColor: c.badgeBg }]}>
+          <Text style={[styles.modelChipText, { color: c.subtext }]} numberOfLines={1}>{shortModel(model)} ▾</Text>
         </Pressable>
       </View>
+
+      <ActionSheet visible={!!sheet} actions={sheet ?? []} onClose={() => setSheet(null)} />
     </View>
   );
 }
 
 function DateBadge({ label }: { label: string }) {
+  const c = usePalette();
   return (
     <View style={styles.dateWrap}>
-      <Text style={styles.dateBadge}>{label}</Text>
+      <Text style={[styles.dateBadge, { backgroundColor: c.badgeBg, color: c.badgeText }]}>{label}</Text>
     </View>
   );
 }
 
 function Bubble({ m }: { m: Message }) {
+  const c = usePalette();
   const mine = m.role === 'user';
   return (
     <View style={{ width: '100%', alignItems: mine ? 'flex-end' : 'flex-start' }}>
-      <View style={[styles.bubble, mine ? styles.mine : styles.theirs]}>
-        <Text selectable style={[styles.bubbleText, mine && styles.mineText]}>{m.text || '…'}</Text>
+      <View style={[styles.bubble, { backgroundColor: mine ? c.accent : c.theirsBg }]}>
+        <Text selectable style={[styles.bubbleText, { color: mine ? c.onAccent : c.theirsText }]}>{m.text || '…'}</Text>
       </View>
-      <Text style={styles.time}>{timeLabel(m.ts)}</Text>
+      <Text style={[styles.time, { color: c.faint }]}>{timeLabel(m.ts)}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#fff' },
+  root: { flex: 1 },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
-  greeting: { fontSize: 22, color: '#666', fontWeight: '600' },
+  greeting: { fontSize: 22, fontWeight: '600' },
   bubble: { maxWidth: '82%', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 18, borderCurve: 'continuous' },
-  mine: { alignSelf: 'flex-end', backgroundColor: '#7c5cff' },
-  theirs: { alignSelf: 'flex-start', backgroundColor: 'rgba(127,127,127,0.16)' },
   bubbleText: { fontSize: 16, lineHeight: 22 },
-  mineText: { color: '#fff' },
-  time: { fontSize: 11, color: '#b3b3b3', marginTop: 3, marginHorizontal: 4 },
+  time: { fontSize: 11, marginTop: 3, marginHorizontal: 4 },
   dateWrap: { alignItems: 'center', paddingVertical: 8 },
-  dateBadge: { fontSize: 12, color: '#8a8a8a', backgroundColor: 'rgba(120,120,120,0.10)', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12, borderCurve: 'continuous', overflow: 'hidden' },
+  dateBadge: { fontSize: 12, paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12, borderCurve: 'continuous', overflow: 'hidden' },
   gradient: { position: 'absolute', left: 0, right: 0, bottom: 0, top: -56 },
   banner: { marginHorizontal: 16, marginBottom: 6, backgroundColor: '#fff3d6', paddingVertical: 9, borderRadius: 14, borderCurve: 'continuous', alignItems: 'center' },
   bannerText: { color: '#8a5a00', fontSize: 13 },
@@ -267,15 +258,14 @@ const styles = StyleSheet.create({
   pill: {
     flex: 1, minHeight: 54, maxHeight: 150, justifyContent: 'center',
     paddingHorizontal: 20, paddingVertical: 6, borderRadius: 28, borderCurve: 'continuous',
-    backgroundColor: '#fff', boxShadow: '0 2px 16px rgba(0,0,0,0.10)',
+    boxShadow: '0 2px 16px rgba(0,0,0,0.10)',
   },
-  input: { fontSize: 16, lineHeight: 21, color: '#111' },
+  input: { fontSize: 16, lineHeight: 21 },
   sendGlass: { width: 54, height: 54, borderRadius: 27, borderCurve: 'continuous', overflow: 'hidden' },
-  send: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#7c5cff' },
+  send: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   menuWrap: { position: 'absolute', left: 14 },
   menuBtn: { width: 42, height: 42, borderRadius: 21, borderCurve: 'continuous', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   topCenter: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
-  modelChip: { maxWidth: '60%', paddingHorizontal: 14, paddingVertical: 7, borderRadius: 16, borderCurve: 'continuous', backgroundColor: 'rgba(120,120,120,0.10)' },
-  modelChipText: { fontSize: 14, fontWeight: '600', color: '#555' },
+  modelChip: { maxWidth: '60%', paddingHorizontal: 14, paddingVertical: 7, borderRadius: 16, borderCurve: 'continuous' },
+  modelChipText: { fontSize: 14, fontWeight: '600' },
 });
-

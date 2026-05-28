@@ -5,8 +5,10 @@ import {
   getChatKey, setChatKey, getEmbedKey, setEmbedKey, type EndpointCfg,
 } from '@/lib/config';
 import { resetEngines } from '@/lib/engine';
+import { usePalette } from '@/lib/theme';
 
 export default function Settings() {
+  const c = usePalette();
   const [chat, setChat] = useState<EndpointCfg>(getChatCfg());
   const [embed, setEmbed] = useState<EndpointCfg>(getEmbedCfg());
   const [chatKey, setCk] = useState('');
@@ -26,7 +28,7 @@ export default function Settings() {
   };
 
   return (
-    <ScrollView contentContainerStyle={{ padding: 16, gap: 20 }} contentInsetAdjustmentBehavior="automatic">
+    <ScrollView style={{ backgroundColor: c.bg }} contentContainerStyle={{ padding: 16, gap: 20 }} contentInsetAdjustmentBehavior="automatic">
       <Section title="Chat — โมเดลฉลาด (OpenRouter)">
         <Field label="Base URL" value={chat.baseURL} onChange={(v) => setChat({ ...chat, baseURL: v })} />
         <Field label="Model" value={chat.model} onChange={(v) => setChat({ ...chat, model: v })} />
@@ -39,46 +41,45 @@ export default function Settings() {
         <Field label="API Key (ถ้ามี)" value={embedKey} onChange={setEk} secure />
       </Section>
 
-      <Pressable onPress={save} style={styles.save}>
-        <Text style={styles.saveText}>บันทึก</Text>
+      <Pressable onPress={save} style={[styles.save, { backgroundColor: c.accent }]}>
+        <Text style={[styles.saveText, { color: c.onAccent }]}>บันทึก</Text>
       </Pressable>
     </ScrollView>
   );
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  const c = usePalette();
   return (
     <View style={{ gap: 10 }}>
-      <Text style={styles.section}>{title}</Text>
+      <Text style={[styles.section, { color: c.subtext }]}>{title}</Text>
       {children}
     </View>
   );
 }
 
 function Field({ label, value, onChange, secure }: { label: string; value: string; onChange: (v: string) => void; secure?: boolean }) {
+  const c = usePalette();
   return (
     <View style={{ gap: 4 }}>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={[styles.label, { color: c.subtext }]}>{label}</Text>
       <TextInput
-        style={styles.input}
+        style={[styles.input, { borderColor: c.border, color: c.text, backgroundColor: c.surface }]}
         value={value}
         onChangeText={onChange}
         autoCapitalize="none"
         autoCorrect={false}
         secureTextEntry={secure}
-        placeholderTextColor="#999"
+        placeholderTextColor={c.faint}
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  section: { fontSize: 13, fontWeight: '700', color: '#888', textTransform: 'uppercase', letterSpacing: 0.5 },
-  label: { fontSize: 13, color: '#666' },
-  input: {
-    borderWidth: StyleSheet.hairlineWidth, borderColor: '#bbb', borderRadius: 10, borderCurve: 'continuous',
-    paddingHorizontal: 12, paddingVertical: 10, fontSize: 15, backgroundColor: 'rgba(127,127,127,0.06)',
-  },
-  save: { backgroundColor: '#7c5cff', paddingVertical: 14, borderRadius: 12, borderCurve: 'continuous', alignItems: 'center' },
-  saveText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  section: { fontSize: 13, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+  label: { fontSize: 13 },
+  input: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 10, borderCurve: 'continuous', paddingHorizontal: 12, paddingVertical: 10, fontSize: 15 },
+  save: { paddingVertical: 14, borderRadius: 12, borderCurve: 'continuous', alignItems: 'center' },
+  saveText: { fontSize: 16, fontWeight: '600' },
 });
