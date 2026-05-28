@@ -6,6 +6,7 @@ import type {
 } from './ports.js';
 import { mmrSearch } from './vector.js';
 import { decay, reinforce, merge, prune, detectPatterns } from './consolidation.js';
+import { formatInjection } from './inject.js';
 
 const DAY = 86_400_000;
 
@@ -63,6 +64,29 @@ export class MemoryEngine {
       prospective: snap.prospective.filter(p => p.status === 'pending'),
       tail: snap.messages.slice(-this.cfg.tailN),
     };
+  }
+
+  async ingestModel(text: string): Promise<void> {
+    const snap = await this.d.storage.load();
+    snap.messages.push({ id: uid('m'), role: 'model', text, ts: this.d.clock.now() });
+    await this.d.storage.save(snap);
+  }
+
+  // Full conversational turn: store user msg → retrieve relevant memory →
+  // stream the model reply (yielded to the caller) → store reply → consolidate.
+  // This is why a single thread never overflows: only retrieved memory + a short
+  // tail is sent, never the full history.
+  async *respond(userText: string, image?: { dataUrl: string; mime: string }): AsyncIterable<string> {
+    await this.ingestUser(userText, image);
+    const ctx = await this.retrieve(userText);
+    const inject = formatInjection(ctx);
+    let full = '';
+    for await (const chunk of this.d.chat.stream(ctx.tail, this.d.systemPrompt ?? '', inject)) {
+      full += chunk;
+      yield chunk;
+    }
+    await this.ingestModel(full);
+    await this.tick();
   }
 
   async tick(): Promise<void> {

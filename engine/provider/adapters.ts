@@ -4,8 +4,10 @@ import { embedOnce, chatStream, type EndpointConfig } from './openaiCompat.js';
 
 export function safeUrl(u: string): boolean { return /^https?:\/\//i.test(u); }
 
-export function makeEmbedPort(cfg: EndpointConfig): EmbedPort {
-  return { embed: (text) => embedOnce(cfg, text) };
+// fetchImpl is injectable because React Native's global fetch does NOT support
+// streaming response bodies — pass Expo's streaming fetch (`expo/fetch`) on device.
+export function makeEmbedPort(cfg: EndpointConfig, fetchImpl: typeof fetch = fetch): EmbedPort {
+  return { embed: (text) => embedOnce(cfg, text, fetchImpl) };
 }
 
 const toContent = (m: Message) => ({ role: m.role === 'model' ? 'assistant' : 'user', content: m.text });
@@ -16,12 +18,12 @@ async function collect(it: AsyncIterable<string>): Promise<string> {
   return out;
 }
 
-export function makeChatPort(cfg: EndpointConfig): ChatPort {
+export function makeChatPort(cfg: EndpointConfig, fetchImpl: typeof fetch = fetch): ChatPort {
   return {
     async *stream(messages, systemPrompt, inject) {
       const sys = [systemPrompt, inject].filter(Boolean).join('\n\n');
       const body = { messages: [...(sys ? [{ role: 'system', content: sys }] : []), ...messages.map(toContent)] };
-      yield* chatStream(cfg, body);
+      yield* chatStream(cfg, body, fetchImpl);
     },
 
     async describeImage(dataUrl) {
@@ -29,7 +31,7 @@ export function makeChatPort(cfg: EndpointConfig): ChatPort {
         { type: 'text', text: 'Describe this image for semantic indexing (one line).' },
         { type: 'image_url', image_url: { url: dataUrl } },
       ] }] };
-      return (await collect(chatStream(cfg, body))).trim();
+      return (await collect(chatStream(cfg, body, fetchImpl))).trim();
     },
 
     async extract(recent: Message[]): Promise<ExtractResult> {
@@ -37,7 +39,7 @@ export function makeChatPort(cfg: EndpointConfig): ChatPort {
         'Extract durable facts and anticipatory intents from this chat as JSON ' +
         '{"episodic":[{"content","importance"(1-10),"tags":[]}],"prospective":[{"intent","priority"(1-5),"contextClue"}]}.\n\n' +
         recent.map(m => `${m.role}: ${m.text}`).join('\n');
-      const out = await collect(chatStream(cfg, { messages: [{ role: 'user', content: prompt }], response_format: { type: 'json_object' } }));
+      const out = await collect(chatStream(cfg, { messages: [{ role: 'user', content: prompt }], response_format: { type: 'json_object' } }, fetchImpl));
       try { const j = JSON.parse(out); return { episodic: j.episodic ?? [], prospective: j.prospective ?? [] }; }
       catch { return { episodic: [], prospective: [] }; }
     },
@@ -46,7 +48,7 @@ export function makeChatPort(cfg: EndpointConfig): ChatPort {
       const prompt =
         'These recurring memories suggest one trait. Reply JSON {"statement","kind":"voice"|"value"|"relationship"}.\n' +
         members.map(m => `- ${m.content}`).join('\n');
-      const out = await collect(chatStream(cfg, { messages: [{ role: 'user', content: prompt }], response_format: { type: 'json_object' } }));
+      const out = await collect(chatStream(cfg, { messages: [{ role: 'user', content: prompt }], response_format: { type: 'json_object' } }, fetchImpl));
       try { const j = JSON.parse(out); return { statement: j.statement ?? (members[0]?.content ?? 'trait'), kind: j.kind ?? 'value' }; }
       catch { return { statement: members[0]?.content ?? 'trait', kind: 'value' }; }
     },

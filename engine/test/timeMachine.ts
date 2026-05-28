@@ -29,6 +29,13 @@ export class TimeMachine {
   async retrieve(q: string) { return this.engine.retrieve(q); }
   async advanceAndTick(days: number) { this.clock.advanceDays(days); await this.engine.tick(); }
 
+  async respond(text: string) {
+    let out = '';
+    for await (const c of this.engine.respond(text)) out += c;
+    return out;
+  }
+
   episodic() { return this.storage.snap.episodic; }
   selfTier() { return this.storage.snap.selfFacets; }
+  messages() { return this.storage.snap.messages; }
 }
