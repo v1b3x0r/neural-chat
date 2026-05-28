@@ -3,10 +3,18 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/src/index.d.ts", "default": "./dist/src/index.js" },
+    "./provider": { "types": "./dist/provider/adapters.d.ts", "default": "./dist/provider/adapters.js" }
+  },
+  "files": ["dist"],
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build": "tsc -p tsconfig.build.json"
   },
   "devDependencies": {
     "typescript": "^5.6.0",
