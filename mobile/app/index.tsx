@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import {
   View, Text, TextInput, FlatList, Pressable, KeyboardAvoidingView,
   ActivityIndicator, StyleSheet, Alert,
@@ -12,6 +12,7 @@ import type { Message } from '@nature-labs/living-memory-engine';
 import { getEngine } from '@/lib/engine';
 import { getChatKey, getActiveModel } from '@/lib/config';
 import { shortModel } from '@/lib/models';
+import { getActivePersona, getActivePersonaId, subscribeActivePersona } from '@/lib/personas';
 import { Icon } from '@/components/icon';
 
 export default function Chat() {
@@ -20,32 +21,37 @@ export default function Chat() {
   const [busy, setBusy] = useState(false);
   const [hasKey, setHasKey] = useState(true);
   const [model, setModel] = useState(getActiveModel());
+  const activeId = useSyncExternalStore(subscribeActivePersona, getActivePersonaId, getActivePersonaId);
+  const persona = getActivePersona();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
 
-  // refresh the active model + key status when returning from Models/Settings
+  const eng = () => getEngine(persona.id, persona.systemPrompt);
+
+  // Reload the thread when the active persona changes (drawer switch) or on mount.
+  useEffect(() => {
+    (async () => {
+      const { engine, storage } = await eng();
+      setMessages((await storage.load()).messages);
+      try { await engine.tick(); } catch { /* deep tick on open; ignore offline */ }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeId]);
+
+  // Refresh model + key status when returning from Models/Settings.
   useFocusEffect(useCallback(() => {
     setModel(getActiveModel());
     (async () => setHasKey(!!(await getChatKey())))();
   }, []));
 
-  useEffect(() => {
-    (async () => {
-      const { engine, storage } = await getEngine();
-      setMessages((await storage.load()).messages);
-      setHasKey(!!(await getChatKey()));
-      try { await engine.tick(); } catch { /* deep tick on open; ignore offline */ }
-    })();
-  }, []);
-
   const refresh = async () => {
-    const { storage } = await getEngine();
+    const { storage } = await eng();
     setMessages((await storage.load()).messages);
   };
 
   const streamRespond = async (text: string) => {
     setBusy(true);
-    const { engine, storage } = await getEngine();
+    const { engine, storage } = await eng();
     const tempId = 'tmp-' + Date.now();
     setMessages((prev) => [
       ...prev,
@@ -78,7 +84,7 @@ export default function Chat() {
   // (respond() re-adds the user message, so nothing is duplicated).
   const retry = async (modelMsg: Message) => {
     if (busy) return;
-    const { engine, storage } = await getEngine();
+    const { engine, storage } = await eng();
     const msgs = (await storage.load()).messages;
     const idx = msgs.findIndex((m) => m.id === modelMsg.id);
     let user: Message | undefined;
@@ -93,8 +99,8 @@ export default function Chat() {
     if (busy || m.text === '') return;
     if (m.role === 'user') {
       Alert.alert('ข้อความนี้', m.text.slice(0, 80), [
-        { text: '✏️ แก้ไข', onPress: async () => { const { engine } = await getEngine(); await engine.rewindTo(m.id); await refresh(); setInput(m.text); } },
-        { text: '⏪ ย้อนมาตรงนี้', style: 'destructive', onPress: async () => { const { engine } = await getEngine(); await engine.rewindTo(m.id); await refresh(); } },
+        { text: '✏️ แก้ไข', onPress: async () => { const { engine } = await eng(); await engine.rewindTo(m.id); await refresh(); setInput(m.text); } },
+        { text: '⏪ ย้อนมาตรงนี้', style: 'destructive', onPress: async () => { const { engine } = await eng(); await engine.rewindTo(m.id); await refresh(); } },
         { text: 'ยกเลิก', style: 'cancel' },
       ]);
     } else {

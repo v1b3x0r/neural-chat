@@ -19,6 +19,7 @@ export default function RootLayout() {
           >
             <Drawer.Screen name="index" options={{ title: 'neural', headerShown: false }} />
             <Drawer.Screen name="models" options={{ title: 'Models' }} />
+            <Drawer.Screen name="new-persona" options={{ title: 'สร้างเพื่อน' }} />
             <Drawer.Screen name="settings" options={{ title: 'Settings' }} />
           </Drawer>
           <StatusBar style="auto" />
