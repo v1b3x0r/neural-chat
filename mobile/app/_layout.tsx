@@ -18,7 +18,7 @@ export default function RootLayout() {
             drawerContent={(props) => <DrawerContent {...props} />}
             screenOptions={{ headerTitleAlign: 'center', drawerType: 'front' }}
           >
-            <Drawer.Screen name="index" options={{ title: 'neural' }} />
+            <Drawer.Screen name="index" options={{ title: 'neural', headerShown: false }} />
             <Drawer.Screen name="settings" options={{ title: 'Settings' }} />
           </Drawer>
           <StatusBar style="auto" />

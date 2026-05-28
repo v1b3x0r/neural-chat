@@ -3,7 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 
 export interface EndpointCfg { baseURL: string; model: string; }
 
-const DEFAULT_CHAT: EndpointCfg = { baseURL: 'https://openrouter.ai/api/v1', model: 'anthropic/claude-3.5-sonnet' };
+const DEFAULT_CHAT: EndpointCfg = { baseURL: 'https://openrouter.ai/api/v1', model: 'anthropic/claude-sonnet-4.6' };
 const DEFAULT_EMBED: EndpointCfg = { baseURL: 'http://localhost:1234/v1', model: 'nomic-embed-text' };
 
 function readCfg(key: string, fallback: EndpointCfg): EndpointCfg {

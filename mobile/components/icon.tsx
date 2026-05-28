@@ -3,13 +3,14 @@ import { Platform } from 'react-native';
 import { SymbolView, type SymbolViewProps } from 'expo-symbols';
 import { Ionicons } from '@expo/vector-icons';
 
-export type IconName = 'send' | 'sparkles' | 'persona' | 'settings';
+export type IconName = 'send' | 'sparkles' | 'persona' | 'settings' | 'menu';
 
 const MAP: Record<IconName, { sf: SymbolViewProps['name']; ion: ComponentProps<typeof Ionicons>['name'] }> = {
   send: { sf: 'arrow.up', ion: 'arrow-up' },
   sparkles: { sf: 'sparkles', ion: 'sparkles' },
   persona: { sf: 'person.crop.circle', ion: 'person-circle-outline' },
   settings: { sf: 'gearshape', ion: 'settings-outline' },
+  menu: { sf: 'line.3.horizontal', ion: 'menu' },
 };
 
 // iOS renders native SF Symbols (faithful to the iPhone target);
