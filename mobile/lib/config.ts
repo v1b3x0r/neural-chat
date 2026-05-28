@@ -13,6 +13,13 @@ function readCfg(key: string, fallback: EndpointCfg): EndpointCfg {
 
 export const getChatCfg = () => readCfg('chatCfg', DEFAULT_CHAT);
 export const setChatCfg = (c: EndpointCfg) => localStorage.setItem('chatCfg', JSON.stringify(c));
+
+export const getActiveModel = () => getChatCfg().model;
+export const setActiveModel = (id: string) => setChatCfg({ ...getChatCfg(), model: id });
+export const getStarredModels = (): string[] => {
+  try { return JSON.parse(localStorage.getItem('starredModels') ?? '[]'); } catch { return []; }
+};
+export const setStarredModels = (ids: string[]) => localStorage.setItem('starredModels', JSON.stringify(ids));
 export const getEmbedCfg = () => readCfg('embedCfg', DEFAULT_EMBED);
 export const setEmbedCfg = (c: EndpointCfg) => localStorage.setItem('embedCfg', JSON.stringify(c));
 

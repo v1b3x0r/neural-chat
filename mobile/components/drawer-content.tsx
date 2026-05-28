@@ -12,6 +12,7 @@ export function DrawerContent(props: DrawerContentComponentProps) {
       <Row icon="persona" label="default" onPress={() => go('/')} />
 
       <Text style={[styles.section, { marginTop: 16 }]}>App</Text>
+      <Row icon="models" label="Models" onPress={() => go('/models')} />
       <Row icon="settings" label="Settings" onPress={() => go('/settings')} />
     </DrawerContentScrollView>
   );

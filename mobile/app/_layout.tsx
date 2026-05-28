@@ -2,23 +2,23 @@ import 'react-native-gesture-handler';
 import 'react-native-reanimated';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { ThemeProvider, DefaultTheme, DarkTheme } from '@react-navigation/native';
+import { ThemeProvider, DefaultTheme } from '@react-navigation/native';
 import { Drawer } from 'expo-router/drawer';
 import { StatusBar } from 'expo-status-bar';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import { DrawerContent } from '@/components/drawer-content';
 
 export default function RootLayout() {
-  const scheme = useColorScheme();
+  // Force light theme for now (chat is white); proper dark mode is later polish.
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <ThemeProvider value={scheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <ThemeProvider value={DefaultTheme}>
           <Drawer
             drawerContent={(props) => <DrawerContent {...props} />}
             screenOptions={{ headerTitleAlign: 'center', drawerType: 'front' }}
           >
             <Drawer.Screen name="index" options={{ title: 'neural', headerShown: false }} />
+            <Drawer.Screen name="models" options={{ title: 'Models' }} />
             <Drawer.Screen name="settings" options={{ title: 'Settings' }} />
           </Drawer>
           <StatusBar style="auto" />

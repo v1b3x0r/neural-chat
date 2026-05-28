@@ -1,16 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   View, Text, TextInput, FlatList, Pressable, KeyboardAvoidingView,
   ActivityIndicator, StyleSheet, Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation, Link } from 'expo-router';
+import { useNavigation, Link, router, useFocusEffect } from 'expo-router';
 import { DrawerActions } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { GlassView } from 'expo-glass-effect';
 import type { Message } from '@nature-labs/living-memory-engine';
 import { getEngine } from '@/lib/engine';
-import { getChatKey } from '@/lib/config';
+import { getChatKey, getActiveModel } from '@/lib/config';
+import { shortModel } from '@/lib/models';
 import { Icon } from '@/components/icon';
 
 export default function Chat() {
@@ -18,8 +19,15 @@ export default function Chat() {
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [hasKey, setHasKey] = useState(true);
+  const [model, setModel] = useState(getActiveModel());
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
+
+  // refresh the active model + key status when returning from Models/Settings
+  useFocusEffect(useCallback(() => {
+    setModel(getActiveModel());
+    (async () => setHasKey(!!(await getChatKey())))();
+  }, []));
 
   useEffect(() => {
     (async () => {
@@ -163,6 +171,13 @@ export default function Chat() {
           <Icon name="menu" size={22} color="#333" />
         </GlassView>
       </Pressable>
+
+      {/* floating model selector — top center, taps through to the picker */}
+      <View pointerEvents="box-none" style={[styles.topCenter, { top: insets.top + 8 }]}>
+        <Pressable onPress={() => router.push('/models')} hitSlop={8} style={styles.modelChip}>
+          <Text style={styles.modelChipText} numberOfLines={1}>{shortModel(model)} ▾</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -199,4 +214,8 @@ const styles = StyleSheet.create({
   send: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#7c5cff' },
   menuWrap: { position: 'absolute', left: 14 },
   menuBtn: { width: 42, height: 42, borderRadius: 21, borderCurve: 'continuous', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  topCenter: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
+  modelChip: { maxWidth: '60%', paddingHorizontal: 14, paddingVertical: 7, borderRadius: 16, borderCurve: 'continuous', backgroundColor: 'rgba(120,120,120,0.10)' },
+  modelChipText: { fontSize: 14, fontWeight: '600', color: '#555' },
 });
+
