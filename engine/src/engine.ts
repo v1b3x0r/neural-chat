@@ -72,6 +72,17 @@ export class MemoryEngine {
     await this.d.storage.save(snap);
   }
 
+  // Truncate the thread: remove the given message and everything after it.
+  // Powers edit / rewind / retry. (Memory already consolidated from removed turns
+  // is intentionally kept — rewinding the visible chat doesn't erase what was learned.)
+  async rewindTo(messageId: string): Promise<void> {
+    const snap = await this.d.storage.load();
+    const idx = snap.messages.findIndex((m) => m.id === messageId);
+    if (idx === -1) return;
+    snap.messages = snap.messages.slice(0, idx);
+    await this.d.storage.save(snap);
+  }
+
   // Full conversational turn: store user msg → retrieve relevant memory →
   // stream the model reply (yielded to the caller) → store reply → consolidate.
   // This is why a single thread never overflows: only retrieved memory + a short

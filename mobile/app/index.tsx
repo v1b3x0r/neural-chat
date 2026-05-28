@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   View, Text, TextInput, FlatList, Pressable, KeyboardAvoidingView,
-  ActivityIndicator, StyleSheet,
+  ActivityIndicator, StyleSheet, Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, Link } from 'expo-router';
@@ -30,10 +30,12 @@ export default function Chat() {
     })();
   }, []);
 
-  const send = async () => {
-    const text = input.trim();
-    if (!text || busy) return;
-    setInput('');
+  const refresh = async () => {
+    const { storage } = await getEngine();
+    setMessages((await storage.load()).messages);
+  };
+
+  const streamRespond = async (text: string) => {
     setBusy(true);
     const { engine, storage } = await getEngine();
     const tempId = 'tmp-' + Date.now();
@@ -57,6 +59,44 @@ export default function Chat() {
     }
   };
 
+  const send = () => {
+    const text = input.trim();
+    if (!text || busy) return;
+    setInput('');
+    streamRespond(text);
+  };
+
+  // Retry: rewind to the user message that produced this reply, then respond again
+  // (respond() re-adds the user message, so nothing is duplicated).
+  const retry = async (modelMsg: Message) => {
+    if (busy) return;
+    const { engine, storage } = await getEngine();
+    const msgs = (await storage.load()).messages;
+    const idx = msgs.findIndex((m) => m.id === modelMsg.id);
+    let user: Message | undefined;
+    for (let i = idx; i >= 0; i--) { if (msgs[i]!.role === 'user') { user = msgs[i]; break; } }
+    if (!user) return;
+    await engine.rewindTo(user.id);
+    await refresh();
+    streamRespond(user.text);
+  };
+
+  const onLongPress = (m: Message) => {
+    if (busy || m.text === '') return;
+    if (m.role === 'user') {
+      Alert.alert('ข้อความนี้', m.text.slice(0, 80), [
+        { text: '✏️ แก้ไข', onPress: async () => { const { engine } = await getEngine(); await engine.rewindTo(m.id); await refresh(); setInput(m.text); } },
+        { text: '⏪ ย้อนมาตรงนี้', style: 'destructive', onPress: async () => { const { engine } = await getEngine(); await engine.rewindTo(m.id); await refresh(); } },
+        { text: 'ยกเลิก', style: 'cancel' },
+      ]);
+    } else {
+      Alert.alert('คำตอบนี้', undefined, [
+        { text: '↻ ลองใหม่', onPress: () => retry(m) },
+        { text: 'ยกเลิก', style: 'cancel' },
+      ]);
+    }
+  };
+
   return (
     <View style={styles.root}>
       <View style={{ flex: 1 }}>
@@ -71,7 +111,11 @@ export default function Chat() {
             inverted
             keyExtractor={(m) => m.id}
             contentContainerStyle={{ paddingHorizontal: 12, paddingTop: insets.top + 56, paddingBottom: 12, gap: 10 }}
-            renderItem={({ item }) => <Bubble m={item} />}
+            renderItem={({ item }) => (
+              <Pressable onLongPress={() => onLongPress(item)} delayLongPress={300}>
+                <Bubble m={item} />
+              </Pressable>
+            )}
           />
         )}
       </View>
