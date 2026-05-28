@@ -8,6 +8,7 @@ import { useNavigation, Link, router, useFocusEffect } from 'expo-router';
 import { DrawerActions } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { GlassView } from 'expo-glass-effect';
+import * as Clipboard from 'expo-clipboard';
 import type { Message } from '@nature-labs/living-memory-engine';
 import { getEngine } from '@/lib/engine';
 import { getChatKey, getActiveModel } from '@/lib/config';
@@ -15,6 +16,7 @@ import { shortModel } from '@/lib/models';
 import { getActivePersona, getActivePersonaId, subscribeActivePersona } from '@/lib/personas';
 import { usePalette } from '@/lib/theme';
 import { Icon } from '@/components/icon';
+import { Frosted } from '@/components/frosted';
 import { ActionSheet, type SheetAction } from '@/components/action-sheet';
 
 const TH_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
@@ -57,6 +59,7 @@ export default function Chat() {
   const [hasKey, setHasKey] = useState(true);
   const [model, setModel] = useState(getActiveModel());
   const [sheet, setSheet] = useState<SheetAction[] | null>(null);
+  const [editing, setEditing] = useState<Message | null>(null);
   const activeId = useSyncExternalStore(subscribeActivePersona, getActivePersonaId, getActivePersonaId);
   const persona = getActivePersona();
   const insets = useSafeAreaInsets();
@@ -112,8 +115,16 @@ export default function Chat() {
     const text = input.trim();
     if (!text || busy) return;
     setInput('');
-    streamRespond(text);
+    if (editing) {
+      const target = editing;
+      setEditing(null);
+      (async () => { const { engine } = await eng(); await engine.rewindTo(target.id); await refresh(); streamRespond(text); })();
+    } else {
+      streamRespond(text);
+    }
   };
+
+  const cancelEdit = () => { setEditing(null); setInput(''); };
 
   const retry = async (modelMsg: Message) => {
     if (busy) return;
@@ -130,18 +141,23 @@ export default function Chat() {
 
   const onLongPress = (m: Message) => {
     if (busy || m.text === '') return;
+    const copy: SheetAction = { label: '📋  คัดลอก', onPress: () => { Clipboard.setStringAsync(m.text); } };
     if (m.role === 'user') {
       setSheet([
-        { label: '✏️  แก้ไข', onPress: async () => { const { engine } = await eng(); await engine.rewindTo(m.id); await refresh(); setInput(m.text); } },
+        copy,
+        { label: '✏️  แก้ไข', onPress: () => { setEditing(m); setInput(m.text); } },
         { label: '⏪  ย้อนมาตรงนี้', destructive: true, onPress: async () => { const { engine } = await eng(); await engine.rewindTo(m.id); await refresh(); } },
       ]);
     } else {
-      setSheet([{ label: '↻  ลองใหม่', onPress: () => retry(m) }]);
+      setSheet([copy, { label: '↻  ลองใหม่', onPress: () => retry(m) }]);
     }
   };
 
   return (
-    <View style={[styles.root, { backgroundColor: c.bg }]}>
+    <View style={{ flex: 1, backgroundColor: c.bg }}>
+      {/* ambient gradient: glow at the bottom fading up into the bg */}
+      <LinearGradient pointerEvents="none" colors={[c.bg, c.bg, c.ambient]} style={StyleSheet.absoluteFill} />
+
       <View style={{ flex: 1 }}>
         {messages.length === 0 ? (
           <View style={styles.empty}>
@@ -153,7 +169,8 @@ export default function Chat() {
             data={[...buildRows(messages)].reverse()}
             inverted
             keyExtractor={(r) => r.key}
-            contentContainerStyle={{ paddingHorizontal: 12, paddingTop: insets.top + 56, paddingBottom: 12, gap: 8 }}
+            keyboardDismissMode="interactive"
+            contentContainerStyle={{ paddingHorizontal: 12, paddingTop: insets.top + 56, paddingBottom: 8, gap: 8 }}
             renderItem={({ item }) =>
               item.type === 'date' ? (
                 <DateBadge label={dateLabel(item.ts)} />
@@ -168,11 +185,6 @@ export default function Chat() {
       </View>
 
       <KeyboardAvoidingView behavior="padding" keyboardVerticalOffset={0}>
-        <LinearGradient
-          pointerEvents="none"
-          colors={[c.bg + '00', c.bg + 'd9', c.bg]}
-          style={styles.gradient}
-        />
         {!hasKey && (
           <Link href="/settings" asChild>
             <Pressable style={styles.banner}>
@@ -180,8 +192,14 @@ export default function Chat() {
             </Pressable>
           </Link>
         )}
-        <View style={[styles.composer, { paddingBottom: insets.bottom + 10 }]}>
-          <View style={[styles.pill, { backgroundColor: c.surface }]}>
+        {editing && (
+          <View style={[styles.editBar, { backgroundColor: c.badgeBg }]}>
+            <Text style={[styles.editText, { color: c.subtext }]} numberOfLines={1}>แก้ไข: {editing.text}</Text>
+            <Pressable onPress={cancelEdit} hitSlop={8}><Text style={[styles.editCancel, { color: c.accent }]}>ยกเลิก</Text></Pressable>
+          </View>
+        )}
+        <View style={[styles.composerWrap, { paddingBottom: insets.bottom + 10 }]}>
+          <Frosted solid={c.surface} style={styles.pill}>
             <TextInput
               style={[styles.input, { color: c.text }]}
               value={input}
@@ -190,12 +208,10 @@ export default function Chat() {
               placeholderTextColor={c.faint}
               multiline
             />
-          </View>
-          <GlassView isInteractive style={styles.sendGlass}>
-            <Pressable onPress={send} disabled={busy} style={[styles.send, { backgroundColor: c.accent }]}>
+            <Pressable onPress={send} disabled={busy} style={[styles.sendBtn, { backgroundColor: c.accent }]}>
               {busy ? <ActivityIndicator color={c.onAccent} /> : <Icon name="send" size={20} color={c.onAccent} />}
             </Pressable>
-          </GlassView>
+          </Frosted>
         </View>
       </KeyboardAvoidingView>
 
@@ -210,8 +226,10 @@ export default function Chat() {
       </Pressable>
 
       <View pointerEvents="box-none" style={[styles.topCenter, { top: insets.top + 8 }]}>
-        <Pressable onPress={() => router.push('/models')} hitSlop={8} style={[styles.modelChip, { backgroundColor: c.badgeBg }]}>
-          <Text style={[styles.modelChipText, { color: c.subtext }]} numberOfLines={1}>{shortModel(model)} ▾</Text>
+        <Pressable onPress={() => router.push('/models')} hitSlop={8}>
+          <Frosted solid={c.surface} style={styles.modelChip}>
+            <Text style={[styles.modelChipText, { color: c.text }]} numberOfLines={1}>{shortModel(model)} ▾</Text>
+          </Frosted>
         </Pressable>
       </View>
 
@@ -243,7 +261,6 @@ function Bubble({ m }: { m: Message }) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
   greeting: { fontSize: 22, fontWeight: '600' },
   bubble: { maxWidth: '82%', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 18, borderCurve: 'continuous' },
@@ -251,21 +268,23 @@ const styles = StyleSheet.create({
   time: { fontSize: 11, marginTop: 3, marginHorizontal: 4 },
   dateWrap: { alignItems: 'center', paddingVertical: 8 },
   dateBadge: { fontSize: 12, paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12, borderCurve: 'continuous', overflow: 'hidden' },
-  gradient: { position: 'absolute', left: 0, right: 0, bottom: 0, top: -56 },
   banner: { marginHorizontal: 16, marginBottom: 6, backgroundColor: '#fff3d6', paddingVertical: 9, borderRadius: 14, borderCurve: 'continuous', alignItems: 'center' },
   bannerText: { color: '#8a5a00', fontSize: 13 },
-  composer: { flexDirection: 'row', alignItems: 'flex-end', gap: 10, paddingHorizontal: 14, paddingTop: 6, backgroundColor: 'transparent' },
+  editBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginHorizontal: 16, marginBottom: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 14, borderCurve: 'continuous' },
+  editText: { flex: 1, fontSize: 13 },
+  editCancel: { fontSize: 13, fontWeight: '700' },
+  composerWrap: { paddingHorizontal: 12, paddingTop: 4 },
   pill: {
-    flex: 1, minHeight: 54, maxHeight: 150, justifyContent: 'center',
-    paddingHorizontal: 20, paddingVertical: 6, borderRadius: 28, borderCurve: 'continuous',
-    boxShadow: '0 2px 16px rgba(0,0,0,0.10)',
+    flexDirection: 'row', alignItems: 'flex-end', gap: 8, minHeight: 58,
+    paddingLeft: 22, paddingRight: 8, paddingVertical: 9,
+    borderRadius: 30, borderCurve: 'continuous', overflow: 'hidden',
+    boxShadow: '0 4px 24px rgba(0,0,0,0.14)',
   },
-  input: { fontSize: 16, lineHeight: 21 },
-  sendGlass: { width: 54, height: 54, borderRadius: 27, borderCurve: 'continuous', overflow: 'hidden' },
-  send: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  input: { flex: 1, fontSize: 16, lineHeight: 22, paddingBottom: 7, maxHeight: 140 },
+  sendBtn: { width: 42, height: 42, borderRadius: 21, borderCurve: 'continuous', alignItems: 'center', justifyContent: 'center' },
   menuWrap: { position: 'absolute', left: 14 },
   menuBtn: { width: 42, height: 42, borderRadius: 21, borderCurve: 'continuous', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   topCenter: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
-  modelChip: { maxWidth: '60%', paddingHorizontal: 14, paddingVertical: 7, borderRadius: 16, borderCurve: 'continuous' },
+  modelChip: { maxWidth: 240, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 16, borderCurve: 'continuous', overflow: 'hidden' },
   modelChipText: { fontSize: 14, fontWeight: '600' },
 });
