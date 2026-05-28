@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import {
   View, Text, TextInput, FlatList, Pressable, KeyboardAvoidingView,
-  Platform, ActivityIndicator, StyleSheet,
+  ActivityIndicator, StyleSheet,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useHeaderHeight } from '@react-navigation/elements';
 import { GlassView } from 'expo-glass-effect';
 import { Link } from 'expo-router';
 import { Icon } from '@/components/icon';
@@ -17,6 +18,7 @@ export default function Chat() {
   const [busy, setBusy] = useState(false);
   const [hasKey, setHasKey] = useState(true);
   const insets = useSafeAreaInsets();
+  const headerHeight = useHeaderHeight();
 
   useEffect(() => {
     (async () => {
@@ -57,8 +59,8 @@ export default function Chat() {
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={88}
+      behavior="padding"
+      keyboardVerticalOffset={headerHeight}
     >
       {messages.length === 0 ? (
         <View style={styles.empty}>

@@ -16,8 +16,12 @@ export const setChatCfg = (c: EndpointCfg) => localStorage.setItem('chatCfg', JS
 export const getEmbedCfg = () => readCfg('embedCfg', DEFAULT_EMBED);
 export const setEmbedCfg = (c: EndpointCfg) => localStorage.setItem('embedCfg', JSON.stringify(c));
 
-// API keys live ONLY in the OS keychain (expo-secure-store), never bundled / never in plain storage.
-export const getChatKey = async () => (await SecureStore.getItemAsync('chat_key')) ?? '';
+// Dev convenience: set EXPO_PUBLIC_OPENROUTER_API_KEY in mobile/.env so you don't
+// type a long key on the phone. Falls back to the OS keychain (secure-store) if unset.
+// NOTE: EXPO_PUBLIC_* vars are embedded in the JS bundle — fine for personal/dev use,
+// not for a distributed build (then use secure-store only).
+const ENV_KEY = process.env.EXPO_PUBLIC_OPENROUTER_API_KEY ?? '';
+export const getChatKey = async () => ENV_KEY || (await SecureStore.getItemAsync('chat_key')) || '';
 export const setChatKey = (k: string) => SecureStore.setItemAsync('chat_key', k);
 export const getEmbedKey = async () => (await SecureStore.getItemAsync('embed_key')) ?? '';
 export const setEmbedKey = (k: string) => SecureStore.setItemAsync('embed_key', k);
