@@ -1,7 +1,7 @@
 import { Text, Pressable, StyleSheet } from 'react-native';
 import { DrawerContentScrollView, type DrawerContentComponentProps } from '@react-navigation/drawer';
 import { router } from 'expo-router';
-import { SymbolView } from 'expo-symbols';
+import { Icon, type IconName } from '@/components/icon';
 
 export function DrawerContent(props: DrawerContentComponentProps) {
   const go = (path: string) => { props.navigation.closeDrawer(); (router.push as (p: string) => void)(path); };
@@ -9,18 +9,18 @@ export function DrawerContent(props: DrawerContentComponentProps) {
     <DrawerContentScrollView {...props} contentContainerStyle={{ paddingTop: 24 }}>
       <Text style={styles.section}>Friends</Text>
       {/* P1: real persona list. For now a single default friend (empty system prompt). */}
-      <Row icon="person.crop.circle" label="default" onPress={() => go('/')} />
+      <Row icon="persona" label="default" onPress={() => go('/')} />
 
       <Text style={[styles.section, { marginTop: 16 }]}>App</Text>
-      <Row icon="gearshape" label="Settings" onPress={() => go('/settings')} />
+      <Row icon="settings" label="Settings" onPress={() => go('/settings')} />
     </DrawerContentScrollView>
   );
 }
 
-function Row({ icon, label, onPress }: { icon: string; label: string; onPress: () => void }) {
+function Row({ icon, label, onPress }: { icon: IconName; label: string; onPress: () => void }) {
   return (
     <Pressable onPress={onPress} style={styles.row}>
-      <SymbolView name={icon as never} size={20} tintColor="#888" />
+      <Icon name={icon} size={20} color="#888" />
       <Text style={styles.label}>{label}</Text>
     </Pressable>
   );

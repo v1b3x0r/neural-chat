@@ -5,8 +5,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GlassView } from 'expo-glass-effect';
-import { SymbolView } from 'expo-symbols';
 import { Link } from 'expo-router';
+import { Icon } from '@/components/icon';
 import type { Message } from '@nature-labs/living-memory-engine';
 import { getEngine } from '@/lib/engine';
 import { getChatKey } from '@/lib/config';
@@ -62,7 +62,7 @@ export default function Chat() {
     >
       {messages.length === 0 ? (
         <View style={styles.empty}>
-          <SymbolView name={'sparkles' as never} size={44} tintColor="#7c5cff" />
+          <Icon name="sparkles" size={44} color="#7c5cff" />
           <Text style={styles.greeting}>คุยอะไรดี</Text>
         </View>
       ) : (
@@ -94,7 +94,7 @@ export default function Chat() {
         />
         <GlassView isInteractive style={styles.sendGlass}>
           <Pressable onPress={send} disabled={busy} style={styles.send}>
-            {busy ? <ActivityIndicator color="#fff" /> : <SymbolView name={'arrow.up' as never} size={20} tintColor="#fff" />}
+            {busy ? <ActivityIndicator color="#fff" /> : <Icon name="send" size={20} color="#fff" />}
           </Pressable>
         </GlassView>
       </View>
