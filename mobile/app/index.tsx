@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import {
-  View, Text, TextInput, FlatList, Pressable, KeyboardAvoidingView,
+  View, Text, TextInput, FlatList, Pressable, Keyboard, Platform,
   ActivityIndicator, StyleSheet,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -60,6 +60,7 @@ export default function Chat() {
   const [model, setModel] = useState(getActiveModel());
   const [sheet, setSheet] = useState<SheetAction[] | null>(null);
   const [editing, setEditing] = useState<Message | null>(null);
+  const [kb, setKb] = useState(0);
   const activeId = useSyncExternalStore(subscribeActivePersona, getActivePersonaId, getActivePersonaId);
   const persona = getActivePersona();
   const insets = useSafeAreaInsets();
@@ -81,6 +82,16 @@ export default function Chat() {
     setModel(getActiveModel());
     (async () => setHasKey(!!(await getChatKey())))();
   }, []));
+
+  // Track keyboard height to lift the floating composer above it (KeyboardAvoidingView
+  // doesn't move an absolutely-positioned overlay).
+  useEffect(() => {
+    const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const s = Keyboard.addListener(showEvt, (e) => setKb(e.endCoordinates.height));
+    const h = Keyboard.addListener(hideEvt, () => setKb(0));
+    return () => { s.remove(); h.remove(); };
+  }, []);
 
   const refresh = async () => {
     const { storage } = await eng();
@@ -154,7 +165,7 @@ export default function Chat() {
   };
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: c.bg }} behavior="padding" keyboardVerticalOffset={0}>
+    <View style={{ flex: 1, backgroundColor: c.bg }}>
       {/* ambient gradient: glow at the bottom fading up into the bg */}
       <LinearGradient pointerEvents="none" colors={[c.bg, c.bg, c.ambient]} style={StyleSheet.absoluteFill} />
 
@@ -170,7 +181,7 @@ export default function Chat() {
           inverted
           keyExtractor={(r) => r.key}
           keyboardDismissMode="interactive"
-          contentContainerStyle={{ paddingHorizontal: 12, paddingTop: insets.top + 56, paddingBottom: insets.bottom + 88, gap: 8 }}
+          contentContainerStyle={{ paddingHorizontal: 12, paddingTop: insets.top + 56, paddingBottom: insets.bottom + 96 + kb, gap: 8 }}
           renderItem={({ item }) =>
             item.type === 'date' ? (
               <DateBadge label={dateLabel(item.ts)} />
@@ -184,7 +195,7 @@ export default function Chat() {
       )}
 
       {/* floating composer — messages scroll behind it, edge-to-edge */}
-      <View pointerEvents="box-none" style={styles.composerOverlay}>
+      <View pointerEvents="box-none" style={[styles.composerOverlay, { bottom: kb }]}>
         {!hasKey && (
           <Link href="/settings" asChild>
             <Pressable style={styles.banner}>
@@ -198,14 +209,14 @@ export default function Chat() {
             <Pressable onPress={cancelEdit} hitSlop={8}><Text style={[styles.editCancel, { color: c.accent }]}>ยกเลิก</Text></Pressable>
           </View>
         )}
-        <View style={[styles.composerWrap, { paddingBottom: insets.bottom + 10 }]}>
+        <View style={[styles.composerWrap, { paddingBottom: kb > 0 ? 12 : insets.bottom + 10 }]}>
           <Frosted solid={c.surface} style={styles.pill}>
             <TextInput
               style={[styles.input, { color: c.text }]}
               value={input}
               onChangeText={setInput}
               placeholder="พิมพ์ยาวๆ ไปเลย..."
-              placeholderTextColor={c.faint}
+              placeholderTextColor={c.subtext}
               multiline
             />
             <Pressable onPress={send} disabled={busy} style={[styles.sendBtn, { backgroundColor: c.accent }]}>
@@ -234,7 +245,7 @@ export default function Chat() {
       </View>
 
       <ActionSheet visible={!!sheet} actions={sheet ?? []} onClose={() => setSheet(null)} />
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -276,12 +287,12 @@ const styles = StyleSheet.create({
   composerOverlay: { position: 'absolute', left: 0, right: 0, bottom: 0 },
   composerWrap: { paddingHorizontal: 12, paddingTop: 4 },
   pill: {
-    flexDirection: 'row', alignItems: 'flex-end', gap: 8, minHeight: 58,
+    flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 58,
     paddingLeft: 22, paddingRight: 8, paddingVertical: 9,
     borderRadius: 30, borderCurve: 'continuous', overflow: 'hidden',
     boxShadow: '0 4px 24px rgba(0,0,0,0.14)',
   },
-  input: { flex: 1, fontSize: 16, lineHeight: 22, paddingBottom: 7, maxHeight: 140 },
+  input: { flex: 1, fontSize: 16, lineHeight: 22, paddingTop: 0, paddingBottom: 0, maxHeight: 140 },
   sendBtn: { width: 42, height: 42, borderRadius: 21, borderCurve: 'continuous', alignItems: 'center', justifyContent: 'center' },
   menuWrap: { position: 'absolute', left: 14 },
   menuBtn: { width: 42, height: 42, borderRadius: 21, borderCurve: 'continuous', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
