@@ -11,7 +11,7 @@ export function DrawerContent(props: DrawerContentComponentProps) {
 
   const pickPersona = (id: string) => {
     setActivePersona(id); // reactive — chat reloads the right thread
-    props.navigation.closeDrawer();
+    (props.navigation as unknown as { navigate: (n: string) => void }).navigate('index'); // go to chat (also closes the drawer)
   };
 
   return (

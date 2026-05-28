@@ -15,6 +15,42 @@ import { shortModel } from '@/lib/models';
 import { getActivePersona, getActivePersonaId, subscribeActivePersona } from '@/lib/personas';
 import { Icon } from '@/components/icon';
 
+const TH_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+
+function timeLabel(ts: number): string {
+  const d = new Date(ts);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+function dayKey(ts: number): string {
+  const d = new Date(ts);
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+
+function dateLabel(ts: number): string {
+  const d = new Date(ts);
+  const now = new Date();
+  const startOf = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diffDays = Math.round((startOf(now) - startOf(d)) / 86_400_000);
+  if (diffDays === 0) return 'วันนี้';
+  if (diffDays === 1) return 'เมื่อวาน';
+  const base = `${d.getDate()} ${TH_MONTHS[d.getMonth()]}`;
+  return d.getFullYear() !== now.getFullYear() ? `${base} ${d.getFullYear()}` : base;
+}
+
+type Row = { type: 'date'; key: string; ts: number } | { type: 'msg'; key: string; m: Message };
+
+function buildRows(messages: Message[]): Row[] {
+  const rows: Row[] = [];
+  let lastDay = '';
+  for (const m of messages) {
+    const k = dayKey(m.ts);
+    if (k !== lastDay) { rows.push({ type: 'date', key: 'd-' + k, ts: m.ts }); lastDay = k; }
+    rows.push({ type: 'msg', key: m.id, m });
+  }
+  return rows;
+}
+
 export default function Chat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -121,15 +157,19 @@ export default function Chat() {
           </View>
         ) : (
           <FlatList
-            data={[...messages].reverse()}
+            data={[...buildRows(messages)].reverse()}
             inverted
-            keyExtractor={(m) => m.id}
-            contentContainerStyle={{ paddingHorizontal: 12, paddingTop: insets.top + 56, paddingBottom: 12, gap: 10 }}
-            renderItem={({ item }) => (
-              <Pressable onLongPress={() => onLongPress(item)} delayLongPress={300}>
-                <Bubble m={item} />
-              </Pressable>
-            )}
+            keyExtractor={(r) => r.key}
+            contentContainerStyle={{ paddingHorizontal: 12, paddingTop: insets.top + 56, paddingBottom: 12, gap: 8 }}
+            renderItem={({ item }) =>
+              item.type === 'date' ? (
+                <DateBadge label={dateLabel(item.ts)} />
+              ) : (
+                <Pressable onLongPress={() => onLongPress(item.m)} delayLongPress={300}>
+                  <Bubble m={item.m} />
+                </Pressable>
+              )
+            }
           />
         )}
       </View>
@@ -188,11 +228,22 @@ export default function Chat() {
   );
 }
 
+function DateBadge({ label }: { label: string }) {
+  return (
+    <View style={styles.dateWrap}>
+      <Text style={styles.dateBadge}>{label}</Text>
+    </View>
+  );
+}
+
 function Bubble({ m }: { m: Message }) {
   const mine = m.role === 'user';
   return (
-    <View style={[styles.bubble, mine ? styles.mine : styles.theirs]}>
-      <Text selectable style={[styles.bubbleText, mine && styles.mineText]}>{m.text || '…'}</Text>
+    <View style={{ width: '100%', alignItems: mine ? 'flex-end' : 'flex-start' }}>
+      <View style={[styles.bubble, mine ? styles.mine : styles.theirs]}>
+        <Text selectable style={[styles.bubbleText, mine && styles.mineText]}>{m.text || '…'}</Text>
+      </View>
+      <Text style={styles.time}>{timeLabel(m.ts)}</Text>
     </View>
   );
 }
@@ -206,6 +257,9 @@ const styles = StyleSheet.create({
   theirs: { alignSelf: 'flex-start', backgroundColor: 'rgba(127,127,127,0.16)' },
   bubbleText: { fontSize: 16, lineHeight: 22 },
   mineText: { color: '#fff' },
+  time: { fontSize: 11, color: '#b3b3b3', marginTop: 3, marginHorizontal: 4 },
+  dateWrap: { alignItems: 'center', paddingVertical: 8 },
+  dateBadge: { fontSize: 12, color: '#8a8a8a', backgroundColor: 'rgba(120,120,120,0.10)', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12, borderCurve: 'continuous', overflow: 'hidden' },
   gradient: { position: 'absolute', left: 0, right: 0, bottom: 0, top: -56 },
   banner: { marginHorizontal: 16, marginBottom: 6, backgroundColor: '#fff3d6', paddingVertical: 9, borderRadius: 14, borderCurve: 'continuous', alignItems: 'center' },
   bannerText: { color: '#8a5a00', fontSize: 13 },

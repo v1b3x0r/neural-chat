@@ -90,7 +90,8 @@ export class MemoryEngine {
   async *respond(userText: string, image?: { dataUrl: string; mime: string }): AsyncIterable<string> {
     await this.ingestUser(userText, image);
     const ctx = await this.retrieve(userText);
-    const inject = formatInjection(ctx);
+    const timeNote = `[Current time: ${new Date(this.d.clock.now()).toString()}]`;
+    const inject = [timeNote, formatInjection(ctx)].filter(Boolean).join('\n\n');
     let full = '';
     for await (const chunk of this.d.chat.stream(ctx.tail, this.d.systemPrompt ?? '', inject)) {
       full += chunk;
