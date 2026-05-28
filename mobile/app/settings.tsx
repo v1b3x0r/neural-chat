@@ -1,46 +1,39 @@
 import { useEffect, useState } from 'react';
 import { ScrollView, View, Text, TextInput, Pressable, StyleSheet, Alert } from 'react-native';
-import {
-  getChatCfg, setChatCfg, getEmbedCfg, setEmbedCfg,
-  getChatKey, setChatKey, getEmbedKey, setEmbedKey, type EndpointCfg,
-} from '@/lib/config';
+import { getChatKey, setChatKey } from '@/lib/config';
 import { resetEngines } from '@/lib/engine';
 import { usePalette } from '@/lib/theme';
 
 export default function Settings() {
   const c = usePalette();
-  const [chat, setChat] = useState<EndpointCfg>(getChatCfg());
-  const [embed, setEmbed] = useState<EndpointCfg>(getEmbedCfg());
-  const [chatKey, setCk] = useState('');
-  const [embedKey, setEk] = useState('');
+  const [key, setKey] = useState('');
 
-  useEffect(() => {
-    (async () => { setCk(await getChatKey()); setEk(await getEmbedKey()); })();
-  }, []);
+  useEffect(() => { (async () => setKey(await getChatKey()))(); }, []);
 
   const save = async () => {
-    setChatCfg(chat);
-    setEmbedCfg(embed);
-    await setChatKey(chatKey);
-    await setEmbedKey(embedKey);
+    await setChatKey(key.trim());
     resetEngines();
-    Alert.alert('บันทึกแล้ว', 'ตั้งค่าใหม่จะใช้กับข้อความถัดไป');
+    Alert.alert('บันทึกแล้ว', 'ใช้กับข้อความถัดไป');
   };
 
   return (
-    <ScrollView style={{ backgroundColor: c.bg }} contentContainerStyle={{ padding: 16, gap: 20 }} contentInsetAdjustmentBehavior="automatic">
-      <Section title="Chat — โมเดลฉลาด (OpenRouter)">
-        <Field label="Base URL" value={chat.baseURL} onChange={(v) => setChat({ ...chat, baseURL: v })} />
-        <Field label="Model" value={chat.model} onChange={(v) => setChat({ ...chat, model: v })} />
-        <Field label="API Key" value={chatKey} onChange={setCk} secure />
-      </Section>
-
-      <Section title="Embeddings — local/offline (LM Studio)">
-        <Field label="Base URL" value={embed.baseURL} onChange={(v) => setEmbed({ ...embed, baseURL: v })} />
-        <Field label="Model" value={embed.model} onChange={(v) => setEmbed({ ...embed, model: v })} />
-        <Field label="API Key (ถ้ามี)" value={embedKey} onChange={setEk} secure />
-      </Section>
-
+    <ScrollView style={{ backgroundColor: c.bg }} contentContainerStyle={{ padding: 16, gap: 14 }} contentInsetAdjustmentBehavior="automatic">
+      <Text style={[styles.hint, { color: c.subtext }]}>
+        ใส่ OpenRouter API key ครั้งเดียว (หรือใส่ใน .env.local). โมเดลเลือกได้ในหน้า Models — chat + embeddings ใช้ key เดียวกัน.
+      </Text>
+      <View style={{ gap: 6 }}>
+        <Text style={[styles.label, { color: c.subtext }]}>OpenRouter API Key</Text>
+        <TextInput
+          style={[styles.input, { borderColor: c.border, color: c.text, backgroundColor: c.surface }]}
+          value={key}
+          onChangeText={setKey}
+          placeholder="sk-or-v1-..."
+          placeholderTextColor={c.faint}
+          autoCapitalize="none"
+          autoCorrect={false}
+          secureTextEntry
+        />
+      </View>
       <Pressable onPress={save} style={[styles.save, { backgroundColor: c.accent }]}>
         <Text style={[styles.saveText, { color: c.onAccent }]}>บันทึก</Text>
       </Pressable>
@@ -48,38 +41,10 @@ export default function Settings() {
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  const c = usePalette();
-  return (
-    <View style={{ gap: 10 }}>
-      <Text style={[styles.section, { color: c.subtext }]}>{title}</Text>
-      {children}
-    </View>
-  );
-}
-
-function Field({ label, value, onChange, secure }: { label: string; value: string; onChange: (v: string) => void; secure?: boolean }) {
-  const c = usePalette();
-  return (
-    <View style={{ gap: 4 }}>
-      <Text style={[styles.label, { color: c.subtext }]}>{label}</Text>
-      <TextInput
-        style={[styles.input, { borderColor: c.border, color: c.text, backgroundColor: c.surface }]}
-        value={value}
-        onChangeText={onChange}
-        autoCapitalize="none"
-        autoCorrect={false}
-        secureTextEntry={secure}
-        placeholderTextColor={c.faint}
-      />
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  section: { fontSize: 13, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+  hint: { fontSize: 13, lineHeight: 19 },
   label: { fontSize: 13 },
-  input: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 10, borderCurve: 'continuous', paddingHorizontal: 12, paddingVertical: 10, fontSize: 15 },
-  save: { paddingVertical: 14, borderRadius: 12, borderCurve: 'continuous', alignItems: 'center' },
+  input: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 10, borderCurve: 'continuous', paddingHorizontal: 12, paddingVertical: 11, fontSize: 15 },
+  save: { paddingVertical: 14, borderRadius: 12, borderCurve: 'continuous', alignItems: 'center', marginTop: 4 },
   saveText: { fontSize: 16, fontWeight: '600' },
 });

@@ -4,7 +4,8 @@ import * as SecureStore from 'expo-secure-store';
 export interface EndpointCfg { baseURL: string; model: string; }
 
 const DEFAULT_CHAT: EndpointCfg = { baseURL: 'https://openrouter.ai/api/v1', model: 'google/gemma-4-26b-a4b-it:free' };
-const DEFAULT_EMBED: EndpointCfg = { baseURL: 'http://localhost:1234/v1', model: 'nomic-embed-text' };
+// Embeddings via OpenRouter too (same key) — one-key setup. Local/LM Studio later.
+const DEFAULT_EMBED: EndpointCfg = { baseURL: 'https://openrouter.ai/api/v1', model: 'openai/text-embedding-3-small' };
 
 function readCfg(key: string, fallback: EndpointCfg): EndpointCfg {
   try { return { ...fallback, ...JSON.parse(localStorage.getItem(key) ?? '{}') }; }
@@ -30,5 +31,3 @@ export const setEmbedCfg = (c: EndpointCfg) => localStorage.setItem('embedCfg', 
 const ENV_KEY = process.env.EXPO_PUBLIC_OPENROUTER_API_KEY ?? '';
 export const getChatKey = async () => ENV_KEY || (await SecureStore.getItemAsync('chat_key')) || '';
 export const setChatKey = (k: string) => SecureStore.setItemAsync('chat_key', k);
-export const getEmbedKey = async () => (await SecureStore.getItemAsync('embed_key')) ?? '';
-export const setEmbedKey = (k: string) => SecureStore.setItemAsync('embed_key', k);

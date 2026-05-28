@@ -154,37 +154,37 @@ export default function Chat() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: c.bg }}>
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: c.bg }} behavior="padding" keyboardVerticalOffset={0}>
       {/* ambient gradient: glow at the bottom fading up into the bg */}
       <LinearGradient pointerEvents="none" colors={[c.bg, c.bg, c.ambient]} style={StyleSheet.absoluteFill} />
 
-      <View style={{ flex: 1 }}>
-        {messages.length === 0 ? (
-          <View style={styles.empty}>
-            <Icon name="sparkles" size={44} color={c.accent} />
-            <Text style={[styles.greeting, { color: c.subtext }]}>คุยอะไรดี</Text>
-          </View>
-        ) : (
-          <FlatList
-            data={[...buildRows(messages)].reverse()}
-            inverted
-            keyExtractor={(r) => r.key}
-            keyboardDismissMode="interactive"
-            contentContainerStyle={{ paddingHorizontal: 12, paddingTop: insets.top + 56, paddingBottom: 8, gap: 8 }}
-            renderItem={({ item }) =>
-              item.type === 'date' ? (
-                <DateBadge label={dateLabel(item.ts)} />
-              ) : (
-                <Pressable onLongPress={() => onLongPress(item.m)} delayLongPress={280}>
-                  <Bubble m={item.m} />
-                </Pressable>
-              )
-            }
-          />
-        )}
-      </View>
+      {messages.length === 0 ? (
+        <View style={styles.empty}>
+          <Icon name="sparkles" size={44} color={c.accent} />
+          <Text style={[styles.greeting, { color: c.subtext }]}>คุยอะไรดี</Text>
+        </View>
+      ) : (
+        <FlatList
+          style={{ flex: 1 }}
+          data={[...buildRows(messages)].reverse()}
+          inverted
+          keyExtractor={(r) => r.key}
+          keyboardDismissMode="interactive"
+          contentContainerStyle={{ paddingHorizontal: 12, paddingTop: insets.top + 56, paddingBottom: insets.bottom + 88, gap: 8 }}
+          renderItem={({ item }) =>
+            item.type === 'date' ? (
+              <DateBadge label={dateLabel(item.ts)} />
+            ) : (
+              <Pressable onLongPress={() => onLongPress(item.m)} delayLongPress={280}>
+                <Bubble m={item.m} />
+              </Pressable>
+            )
+          }
+        />
+      )}
 
-      <KeyboardAvoidingView behavior="padding" keyboardVerticalOffset={0}>
+      {/* floating composer — messages scroll behind it, edge-to-edge */}
+      <View pointerEvents="box-none" style={styles.composerOverlay}>
         {!hasKey && (
           <Link href="/settings" asChild>
             <Pressable style={styles.banner}>
@@ -213,7 +213,7 @@ export default function Chat() {
             </Pressable>
           </Frosted>
         </View>
-      </KeyboardAvoidingView>
+      </View>
 
       <Pressable
         onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
@@ -234,7 +234,7 @@ export default function Chat() {
       </View>
 
       <ActionSheet visible={!!sheet} actions={sheet ?? []} onClose={() => setSheet(null)} />
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -273,6 +273,7 @@ const styles = StyleSheet.create({
   editBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginHorizontal: 16, marginBottom: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 14, borderCurve: 'continuous' },
   editText: { flex: 1, fontSize: 13 },
   editCancel: { fontSize: 13, fontWeight: '700' },
+  composerOverlay: { position: 'absolute', left: 0, right: 0, bottom: 0 },
   composerWrap: { paddingHorizontal: 12, paddingTop: 4 },
   pill: {
     flexDirection: 'row', alignItems: 'flex-end', gap: 8, minHeight: 58,
