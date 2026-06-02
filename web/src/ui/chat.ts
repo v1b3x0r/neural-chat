@@ -3,6 +3,7 @@ import { getEngine } from '../lib/engine';
 import { getActivePersona, subscribeActivePersona } from '../lib/personas';
 import { getActiveProfile, getKey, AMBIENT } from '../lib/config';
 import { observe, maybeGreet } from '../lib/ambient';
+import { labRespond } from '../lib/labrespond';
 
 export function mountChat(root: HTMLElement, openDrawer: () => void, openMemory: () => void): void {
   root.innerHTML = `
@@ -59,12 +60,13 @@ export function mountChat(root: HTMLElement, openDrawer: () => void, openMemory:
     const startId = getActivePersona().id;               // pin the persona for this turn
     const stillHere = () => getActivePersona().id === startId;
     const persona = getActivePersona();
-    const { engine, storage } = await getEngine(persona.id, persona.systemPrompt);
+    const { engine, storage, chatPort } = await getEngine(persona.id, persona.systemPrompt);
     thread.querySelector('.empty')?.remove();
     bubble('user', text);
     const reply = bubble('model', '');
     try {
-      for await (const chunk of engine.respond(text)) { if (stillHere()) { reply.textContent += chunk; thread.scrollTop = thread.scrollHeight; } }
+      // labRespond mirrors engine.respond() but feeds the LLM per the lab toggles (tunable from the 🧠 pane)
+      for await (const chunk of labRespond(engine, chatPort, persona.id, persona.systemPrompt ?? '', text)) { if (stillHere()) { reply.textContent += chunk; thread.scrollTop = thread.scrollHeight; } }
       if (stillHere()) await paint(storage);             // resync ids/ts; skip if user switched persona mid-stream
     } catch {
       // stream dropped (e.g. local model unloaded): undo the orphaned user turn so a resend won't duplicate it in memory

@@ -60,6 +60,12 @@ async function collect(stream: AsyncIterable<string>): Promise<string> {
 
 let greetedThisOpen = false; // module-scope; resets on page load → at most one proactive greet per app-open
 
+// Brain-wipe support: clear a persona's raw worldlog and re-arm the proactive greet (caller also wipes the Snapshot).
+export async function wipeWorld(ns: string): Promise<void> {
+  await setRaw(worldKey(ns), []);
+  greetedThisOpen = false;
+}
+
 // Observe the world: throttle → fetch → diurnal-aware drift → if notable, oracle-interpret → addEpisodic. Returns the obs (or null).
 export async function observe(engine: MemoryEngine, chatPort: ChatPort, ns: string, persona: Persona): Promise<Observation | null> {
   const log = await loadWorldlog(ns);

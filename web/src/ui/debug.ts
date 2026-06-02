@@ -1,7 +1,10 @@
 import { formatInjection } from '@nature-labs/living-memory-engine';
 import { drawerWithGestures } from '@nature-labs/uicp-adapter-vanilla';
-import { getEngine } from '../lib/engine';
-import { getActivePersona } from '../lib/personas';
+import { getEngine, resetEngines } from '../lib/engine';
+import { getActivePersona, setActivePersona } from '../lib/personas';
+import { getLabToggles, setLabToggles, type LabToggles } from '../lib/config';
+import { getLastFed } from '../lib/labrespond';
+import { wipeWorld } from '../lib/ambient';
 import { el } from './dom';
 
 const trunc = (s: string, n = 90) => (s.length > n ? s.slice(0, n) + '…' : s);
@@ -25,10 +28,46 @@ export function mountMemoryPane(host: HTMLElement): { open: () => void } {
     // header + counts
     const refresh = el('button', { className: 'drawer-row', textContent: '↻ refresh' });
     refresh.addEventListener('click', () => void render());
+    const wipe = el('button', { className: 'drawer-row mem-wipe', textContent: '🧹 ล้างสมอง' });
+    wipe.addEventListener('click', async () => {
+      if (!confirm(`ล้างความทรงจำของ ${persona.name} ทั้งหมด? (เริ่มใหม่จากศูนย์)`)) return;
+      await storage.save({ messages: [], episodic: [], selfFacets: [], prospective: [], lastTick: 0 });
+      await wipeWorld(persona.id);
+      resetEngines();
+      setActivePersona(persona.id); // re-fire listeners → chat re-renders empty + ambient re-arms
+      void render();
+    });
     host.append(el('div', { className: 'drawer-section' }, [
       el('h3', { textContent: `🧠 ${persona.name}` }),
       el('div', { className: 'mem-stat', textContent: `messages ${snap.messages.length} · episodic ${snap.episodic.length} · self ${snap.selfFacets.length} · prospective ${snap.prospective.length} · lastTick ${snap.lastTick}` }),
-      refresh,
+      refresh, wipe,
+    ]));
+
+    // Lab — control what we feed the LLM next turn, and see what was fed last turn.
+    const t = getLabToggles();
+    const toggle = (key: 'time' | 'self' | 'episodic' | 'prospective' | 'tail', label: string): HTMLElement => {
+      const cb = el('input', { type: 'checkbox', checked: t[key] });
+      cb.addEventListener('change', () => setLabToggles({ ...getLabToggles(), [key]: cb.checked }));
+      return el('label', { className: 'mem-toggle' }, [cb, ` ${label}`]);
+    };
+    const posSel = el('select');
+    posSel.append(
+      el('option', { value: 'top', textContent: 'time: บนสุด (passive)', selected: t.timePos === 'top' }),
+      el('option', { value: 'end', textContent: 'time: directive ท้าย', selected: t.timePos === 'end' }),
+    );
+    posSel.addEventListener('change', () => setLabToggles({ ...getLabToggles(), timePos: posSel.value as LabToggles['timePos'] }));
+
+    const fed = await getLastFed(persona.id);
+    const fedBox = el('pre', { className: 'mem-tap' });
+    fedBox.textContent = fed
+      ? `system:\n${fed.system || '(ว่าง)'}\n\ninject:\n${fed.inject || '(ว่าง)'}\n\n(+ ${fed.tailCount} tail messages)`
+      : '(ยังไม่มี turn — คุยก่อน)';
+
+    host.append(el('div', { className: 'drawer-section' }, [
+      el('h3', { textContent: '🔬 Lab — feed เข้า LLM (มีผล turn ถัดไป)' }),
+      toggle('time', '⏱ time'), posSel,
+      toggle('self', '🧬 self'), toggle('episodic', '📎 episodic'), toggle('prospective', '🎯 prospective'), toggle('tail', '💬 tail (ข้อความล่าสุด)'),
+      el('div', { className: 'drawer-label', textContent: '📤 last fed (turn ล่าสุด)' }), fedBox,
     ]));
 
     // self-facets (the "who am I" tier)

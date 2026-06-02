@@ -15,6 +15,7 @@ function option(value: string, label: string, selected: boolean): HTMLOptionElem
 export function mountDrawer(host: HTMLElement): { open: () => void } {
   const sheet = drawerWithGestures('#drawer', { position: 'left' });
   document.querySelector('[data-backdrop-for="drawer"]')!.addEventListener('click', () => sheet.close());
+  let adding = false; // new-friend form open?
 
   function fillModels(sel: HTMLSelectElement, ids: string[], current: string): void {
     sel.replaceChildren();
@@ -34,13 +35,22 @@ export function mountDrawer(host: HTMLElement): { open: () => void } {
       b.addEventListener('click', () => { setActivePersona(p.id); sheet.close(); void render(); });
       friends.append(b);
     }
-    const add = el('button', { className: 'drawer-row', textContent: '+ เพื่อนใหม่' });
-    add.addEventListener('click', () => {
-      const name = prompt('ชื่อเพื่อนใหม่?')?.trim(); if (!name) return;
-      const sys = prompt('system prompt (เว้นว่างเพื่อให้ emerge เอง)') ?? '';
-      const np = addPersona(name, sys); setActivePersona(np.id); sheet.close(); void render();
-    });
-    friends.append(add);
+    if (!adding) {
+      const add = el('button', { className: 'drawer-row', textContent: '+ เพื่อนใหม่' });
+      add.addEventListener('click', () => { adding = true; void render(); });
+      friends.append(add);
+    } else {
+      const nameIn = el('input', { type: 'text', placeholder: 'ชื่อ (เช่น นักพฤกษาศาสตร์)' });
+      const promptIn = el('textarea', { placeholder: 'system prompt ที่ค้ำตัวตน (เว้นว่าง = ปล่อย emerge เอง)', rows: 4 });
+      const create = el('button', { className: 'drawer-row', textContent: 'สร้าง' });
+      create.addEventListener('click', () => {
+        const name = nameIn.value.trim(); if (!name) return;
+        const np = addPersona(name, promptIn.value); adding = false; setActivePersona(np.id); sheet.close(); void render();
+      });
+      const cancel = el('button', { className: 'drawer-row', textContent: 'ยกเลิก' });
+      cancel.addEventListener('click', () => { adding = false; void render(); });
+      friends.append(nameIn, promptIn, create, cancel);
+    }
     host.append(friends);
 
     // --- model profile + discovered models ---
