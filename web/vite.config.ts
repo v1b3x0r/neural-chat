@@ -1,5 +1,4 @@
-/// <reference types="vitest/config" />
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vitest/config';
 
 // The engine ships prebuilt ESM dist via its exports map; excluding it from
 // pre-bundling avoids esbuild choking on the linked file: package.
