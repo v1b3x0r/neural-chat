@@ -22,7 +22,7 @@ function option(value: string, label: string, selected: boolean): HTMLOptionElem
 
 export function mountDrawer(host: HTMLElement): { open: () => void } {
   const sheet = drawerWithGestures('#drawer', { position: 'left' });
-  document.querySelector('.backdrop')!.addEventListener('click', () => sheet.close());
+  document.querySelector('[data-backdrop-for="drawer"]')!.addEventListener('click', () => sheet.close());
 
   function fillModels(sel: HTMLSelectElement, ids: string[], current: string): void {
     sel.replaceChildren();

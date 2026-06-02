@@ -14,7 +14,7 @@ body { margin:0; font-family:system-ui,-apple-system,sans-serif; color:var(--tex
 #app { display:flex; flex-direction:column; max-width:720px; margin:0 auto; height:100%; }
 .topbar { display:flex; align-items:center; gap:12px; padding:14px 16px; }
 .topbar .icon { background:none; border:none; font-size:20px; color:var(--text); cursor:pointer; }
-.topbar .title { font-weight:600; }
+.topbar .title { font-weight:600; flex:1; }
 
 .thread { flex:1; overflow-y:auto; padding:8px 16px 96px; display:flex; flex-direction:column; gap:10px; }
 .bubble { max-width:78%; padding:10px 14px; border-radius:18px; line-height:1.45; white-space:pre-wrap; word-break:break-word; }
@@ -41,3 +41,14 @@ body { margin:0; font-family:system-ui,-apple-system,sans-serif; color:var(--tex
 .drawer-row { display:block; width:100%; text-align:left; padding:10px 12px; border:none; border-radius:10px; background:transparent; color:var(--text); cursor:pointer; font:inherit; }
 .drawer-row.active { background:var(--accent); color:var(--onAccent); }
 #drawer input, #drawer select { width:100%; padding:10px; border-radius:10px; border:1px solid var(--border); background:var(--bg); color:var(--text); font:inherit; margin-top:6px; }
+
+/* memory pane (right drawer) */
+#mem-drawer { position:fixed; top:0; right:0; height:100%; width:min(92vw,420px); background:var(--surface); color:var(--text);
+  transform:translateX(100%); transition:transform .32s cubic-bezier(.32,.72,0,1); z-index:50; padding:20px; overflow-y:auto; }
+#mem-drawer[data-uip-open="true"] { transform:translateX(0); }
+.mem-stat { font-size:11px; color:var(--subtext); margin-top:2px; }
+.mem-card { padding:8px 10px; border:1px solid var(--border); border-radius:10px; margin-top:6px; font-size:13px; }
+.mem-bar { height:4px; border-radius:2px; background:var(--accent); margin-top:5px; min-width:2px; }
+.mem-tap { width:100%; font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace; white-space:pre-wrap; word-break:break-word;
+  background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:10px; margin-top:8px; max-height:40vh; overflow-y:auto; }
+#mem-drawer input { width:100%; padding:10px; border-radius:10px; border:1px solid var(--border); background:var(--bg); color:var(--text); font:inherit; margin-top:6px; }

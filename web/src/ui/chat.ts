@@ -3,9 +3,9 @@ import { getEngine } from '../lib/engine';
 import { getActivePersona, subscribeActivePersona } from '../lib/personas';
 import { getActiveProfile, getKey } from '../lib/config';
 
-export function mountChat(root: HTMLElement, openDrawer: () => void): void {
+export function mountChat(root: HTMLElement, openDrawer: () => void, openMemory: () => void): void {
   root.innerHTML = `
-    <header class="topbar"><button id="menu" class="icon" aria-label="menu">☰</button><span class="title"></span></header>
+    <header class="topbar"><button id="menu" class="icon" aria-label="menu">☰</button><span class="title"></span><button id="mem" class="icon" aria-label="memory">🧠</button></header>
     <main id="thread" class="thread"></main>
     <div id="banner" class="banner" hidden>ต้องใส่ API key ก่อน — แตะเพื่อตั้งค่า</div>
     <form id="composer" class="composer">
@@ -20,6 +20,7 @@ export function mountChat(root: HTMLElement, openDrawer: () => void): void {
   let busy = false;
 
   q('#menu').addEventListener('click', openDrawer);
+  q('#mem').addEventListener('click', openMemory);
   banner.addEventListener('click', openDrawer);
 
   function needsKey(): boolean { const p = getActiveProfile(); return !!p.needsKey && !getKey(p.id); }
