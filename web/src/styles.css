@@ -1,0 +1,7 @@
+:root { --bg:#faf7f2; --text:#2b2926; --accent:#7c5cff; }
+* { box-sizing: border-box; }
+body { margin:0; font-family: system-ui, -apple-system, sans-serif; background:var(--bg); color:var(--text); }
+#drawer { position:fixed; top:0; left:0; height:100%; width:min(80vw,320px); background:#fff; transform:translateX(-100%); transition:transform .32s cubic-bezier(.32,.72,0,1); z-index:50; padding:20px; }
+#drawer[data-uip-open="true"] { transform:translateX(0); }
+.backdrop { position:fixed; inset:0; background:rgba(0,0,0,.4); opacity:0; visibility:hidden; transition:opacity .32s; z-index:40; }
+.backdrop.uip-backdrop-open { opacity:1; visibility:visible; }
