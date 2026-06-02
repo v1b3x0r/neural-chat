@@ -1,4 +1,4 @@
-import type { Message } from '@nature-labs/living-memory-engine';
+import type { Message, StoragePort } from '@nature-labs/living-memory-engine';
 import { getEngine } from '../lib/engine';
 import { getActivePersona, subscribeActivePersona } from '../lib/personas';
 import { getActiveProfile, getKey } from '../lib/config';
@@ -34,11 +34,7 @@ export function mountChat(root: HTMLElement, openDrawer: () => void, openMemory:
     return el;
   }
 
-  async function render(): Promise<void> {
-    const persona = getActivePersona();
-    title.textContent = persona.name;
-    banner.hidden = !needsKey();
-    const { storage } = await getEngine(persona.id, persona.systemPrompt);
+  async function paint(storage: StoragePort): Promise<void> {
     const snap = await storage.load();
     thread.replaceChildren();
     if (!snap.messages.length) {
@@ -47,23 +43,34 @@ export function mountChat(root: HTMLElement, openDrawer: () => void, openMemory:
     } else for (const m of snap.messages) bubble(m.role, m.text);
   }
 
+  async function render(): Promise<void> {
+    const persona = getActivePersona();
+    title.textContent = persona.name;
+    banner.hidden = !needsKey();
+    const { storage } = await getEngine(persona.id, persona.systemPrompt);
+    await paint(storage);
+  }
+
   async function submit(text: string): Promise<void> {
     if (busy || !text.trim()) return;
     if (needsKey()) { openDrawer(); return; }
     busy = true; send.disabled = true;
+    const startId = getActivePersona().id;               // pin the persona for this turn
+    const stillHere = () => getActivePersona().id === startId;
     const persona = getActivePersona();
     const { engine, storage } = await getEngine(persona.id, persona.systemPrompt);
     thread.querySelector('.empty')?.remove();
     bubble('user', text);
     const reply = bubble('model', '');
     try {
-      for await (const chunk of engine.respond(text)) { reply.textContent += chunk; thread.scrollTop = thread.scrollHeight; }
-      const snap = await storage.load();                 // resync ids/timestamps from the persisted snapshot
-      thread.replaceChildren();
-      for (const m of snap.messages) bubble(m.role, m.text);
+      for await (const chunk of engine.respond(text)) { if (stillHere()) { reply.textContent += chunk; thread.scrollTop = thread.scrollHeight; } }
+      if (stillHere()) await paint(storage);             // resync ids/ts; skip if user switched persona mid-stream
     } catch {
-      reply.textContent = (reply.textContent || '') + '\n⚠️ ส่งไม่สำเร็จ ลองใหม่อีกที';
-      input.value = text;                                 // keep the text recoverable for a manual resend
+      // stream dropped (e.g. local model unloaded): undo the orphaned user turn so a resend won't duplicate it in memory
+      const snap = await storage.load();
+      const last = snap.messages[snap.messages.length - 1];
+      if (last && last.role === 'user') await engine.rewindTo(last.id);
+      if (stillHere()) { input.value = text; await paint(storage); }
     } finally { busy = false; send.disabled = false; }
   }
 

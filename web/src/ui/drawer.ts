@@ -6,15 +6,7 @@ import {
 } from '../lib/config';
 import { fetchModels } from '../lib/models';
 import { resetEngines } from '../lib/engine';
-
-// Build nodes via createElement + textContent only — user-provided persona names and
-// fetched model ids are never injected as HTML.
-function el<K extends keyof HTMLElementTagNameMap>(tag: K, props: Partial<HTMLElementTagNameMap[K]> = {}, kids: (Node | string)[] = []): HTMLElementTagNameMap[K] {
-  const n = document.createElement(tag);
-  Object.assign(n, props);
-  n.append(...kids);
-  return n;
-}
+import { el } from './dom';
 
 function option(value: string, label: string, selected: boolean): HTMLOptionElement {
   return el('option', { value, textContent: label, selected });

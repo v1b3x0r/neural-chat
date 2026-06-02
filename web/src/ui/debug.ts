@@ -2,13 +2,7 @@ import { formatInjection } from '@nature-labs/living-memory-engine';
 import { drawerWithGestures } from '@nature-labs/uicp-adapter-vanilla';
 import { getEngine } from '../lib/engine';
 import { getActivePersona } from '../lib/personas';
-
-function el<K extends keyof HTMLElementTagNameMap>(tag: K, props: Partial<HTMLElementTagNameMap[K]> = {}, kids: (Node | string)[] = []): HTMLElementTagNameMap[K] {
-  const n = document.createElement(tag);
-  Object.assign(n, props);
-  n.append(...kids);
-  return n;
-}
+import { el } from './dom';
 
 const trunc = (s: string, n = 90) => (s.length > n ? s.slice(0, n) + '…' : s);
 function bar(v: number): HTMLElement { const d = el('div', { className: 'mem-bar' }); d.style.width = `${Math.min(100, Math.max(0, v * 100))}%`; return d; }
