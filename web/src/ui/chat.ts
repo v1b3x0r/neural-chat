@@ -1,7 +1,8 @@
 import type { Message, StoragePort } from '@nature-labs/living-memory-engine';
 import { getEngine } from '../lib/engine';
 import { getActivePersona, subscribeActivePersona } from '../lib/personas';
-import { getActiveProfile, getKey } from '../lib/config';
+import { getActiveProfile, getKey, AMBIENT } from '../lib/config';
+import { observe, maybeGreet } from '../lib/ambient';
 
 export function mountChat(root: HTMLElement, openDrawer: () => void, openMemory: () => void): void {
   root.innerHTML = `
@@ -78,6 +79,19 @@ export function mountChat(root: HTMLElement, openDrawer: () => void, openMemory:
   input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); composer.requestSubmit(); } });
   input.addEventListener('input', () => { input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 140) + 'px'; });
 
-  subscribeActivePersona(() => void render());
+  // Ambient: an ambient persona observes the world and may greet first. Non-blocking; skipped while a user turn is in flight.
+  async function tickAmbient(): Promise<void> {
+    const persona = getActivePersona();
+    if (busy || !persona.ambient || needsKey()) return;
+    const startId = persona.id;
+    const { engine, chatPort, storage } = await getEngine(persona.id, persona.systemPrompt);
+    const obs = await observe(engine, chatPort, persona.id, persona).catch(() => null);
+    const greeted = await maybeGreet(engine, chatPort, persona, obs).catch(() => false);
+    if (greeted && getActivePersona().id === startId && !busy) await paint(storage);
+  }
+
+  subscribeActivePersona(() => { void render(); void tickAmbient(); });
   void render();
+  void tickAmbient();
+  setInterval(() => void tickAmbient(), AMBIENT.ambientRefreshMs);
 }
