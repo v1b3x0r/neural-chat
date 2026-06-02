@@ -1,9 +1,8 @@
-import { drawerWithGestures } from '@nature-labs/uicp-adapter-vanilla';
 import './styles.css';
+import { initTheme } from './lib/theme';
+import { mountChat } from './ui/chat';
+import { mountDrawer } from './ui/drawer';
 
-const drawer = drawerWithGestures('#drawer', { position: 'left' });
-document.querySelector('#drawer')!.innerHTML = '<h2>เชียงใหม่</h2><p>drawer works.</p>';
-const app = document.querySelector('#app')!;
-app.innerHTML = '<button id="menu">☰ open</button>';
-app.querySelector('#menu')!.addEventListener('click', () => drawer.open());
-document.querySelector('.backdrop')!.addEventListener('click', () => drawer.close());
+initTheme();
+const drawer = mountDrawer(document.querySelector('#drawer') as HTMLElement);
+mountChat(document.querySelector('#app') as HTMLElement, drawer.open);
