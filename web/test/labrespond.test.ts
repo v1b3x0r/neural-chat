@@ -9,7 +9,7 @@ const ctx: InjectionContext = {
   prospective: [{ id: 'p', intent: 'ask about trip', status: 'pending', priority: 3, contextClue: '', createdAt: 0 }],
   tail: [{ id: 'm', role: 'user', text: 'hi', ts: 0 }],
 };
-const ALL: LabToggles = { time: true, timePos: 'top', self: true, episodic: true, prospective: true, tail: true };
+const ALL: LabToggles = { time: true, timePos: 'top', self: true, episodic: true, prospective: true, tail: true, selfState: true };
 
 describe('assembleInject', () => {
   it('all-on includes time(top) + every tier + tail', () => {
@@ -40,5 +40,33 @@ describe('assembleInject', () => {
     const { inject } = assembleInject(ctx, { ...ALL, time: false }, 1000);
     expect(inject).not.toContain('Current time');
     expect(inject).not.toContain('It is now');
+  });
+});
+
+const SELF_BLOCK = '[Self-state]\nสถานะตอนนี้: ออนไลน์';
+
+describe('assembleInject — self-state block', () => {
+  it('prepends the block at the very TOP when selfState on and block non-empty', () => {
+    const { inject } = assembleInject(ctx, ALL, 1000, SELF_BLOCK);
+    expect(inject.indexOf('[Self-state]')).toBe(0);
+    expect(inject.indexOf('[Self-state]')).toBeLessThan(inject.indexOf('[Current time:'));
+    expect(inject.indexOf('[Current time:')).toBeLessThan(inject.indexOf('[Who you are]'));
+  });
+
+  it('omits the block when selfState toggle is off (even if a block is passed)', () => {
+    const { inject } = assembleInject(ctx, { ...ALL, selfState: false }, 1000, SELF_BLOCK);
+    expect(inject).not.toContain('[Self-state]');
+    expect(inject.indexOf('[Current time:')).toBe(0);
+  });
+
+  it('omits the block when the block string is empty', () => {
+    const { inject } = assembleInject(ctx, ALL, 1000, '');
+    expect(inject).not.toContain('[Self-state]');
+  });
+
+  it('3-arg call is unchanged (selfStateBlock defaults to "")', () => {
+    const { inject } = assembleInject(ctx, ALL, 1000);
+    expect(inject).not.toContain('[Self-state]');
+    expect(inject.indexOf('[Current time:')).toBe(0);
   });
 });
