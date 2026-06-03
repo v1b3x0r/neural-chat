@@ -38,10 +38,14 @@ export class MemoryEngine {
 
   // Directly add an episodic memory (used by extract and by tests).
   async addEpisodic(e: { content: string; importance: number; tags: string[]; imageUri?: string }): Promise<void> {
+    // Embed BEFORE loading the snapshot: this runs in the background (ambient observe) concurrently with user
+    // turns. Holding a loaded snapshot across the (network) embed await would let a turn's write that lands
+    // mid-embed be clobbered by this save. With embed first, load→push→save has no long await between it.
+    const embedding = await this.d.embed.embed(e.content);
     const snap = await this.d.storage.load();
     const now = this.d.clock.now();
     snap.episodic.push({
-      id: uid('e'), content: e.content, embedding: await this.d.embed.embed(e.content),
+      id: uid('e'), content: e.content, embedding,
       importance: e.importance, strength: e.importance / 10, createdAt: now, lastRecalledAt: -1,
       tags: e.tags, imageUri: e.imageUri, crystallizeAt: this.d.random.int(3, 7), sourceMsgIds: [],
     });
