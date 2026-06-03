@@ -3,6 +3,7 @@ import { fetchWorld, type WorldSnapshot } from './world';
 import { DISTRICTS, FIELD_LEGEND, METRIC_KEYS } from './data/chiangmai';
 import { AMBIENT } from './config';
 import { getRaw, setRaw } from './storage';
+import { devlog } from './devlog';
 import type { Persona } from './personas';
 
 export type Mood = { valence: number; arousal: number };
@@ -89,6 +90,7 @@ export async function observe(engine: MemoryEngine, chatPort: ChatPort, ns: stri
   if (!observation) return null;
 
   await engine.addEpisodic({ content: observation, importance: scaleFromSalience(score, AMBIENT.salienceK), tags: ['world', ...notable] });
+  devlog('observe', { ns, salience: score, notable, observation });
   return { observation, salience: score };
 }
 
@@ -104,5 +106,6 @@ export async function maybeGreet(engine: MemoryEngine, chatPort: ChatPort, perso
   const greeting = (await collect(chatPort.stream([userMsg(persona.prompts?.greet ?? 'Greet your friend briefly about what you just noticed.')], sys, obs.observation))).trim();
   if (!greeting) return false;
   await engine.ingestModel(greeting);
+  devlog('greet', { persona: persona.id, salience: obs.salience, observation: obs.observation, greeting });
   return true;
 }

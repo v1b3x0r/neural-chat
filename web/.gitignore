@@ -1,4 +1,5 @@
 node_modules
 dist
+.debug
 *.local
 .DS_Store

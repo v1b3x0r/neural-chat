@@ -2,6 +2,7 @@ import type { Message, ChatPort, MemoryEngine, InjectionContext } from '@nature-
 import { formatInjection } from '@nature-labs/living-memory-engine';
 import { getLabToggles, type LabToggles } from './config';
 import { getRaw, setRaw } from './storage';
+import { devlog } from './devlog';
 
 export interface LastFed { system: string; inject: string; tailCount: number; at: number }
 const lastFedKey = (ns: string) => `lastfed:${ns}`;
@@ -34,6 +35,7 @@ export async function* labRespond(engine: MemoryEngine, chatPort: ChatPort, ns: 
   const ctx = await engine.retrieve(text);
   const { inject, tail } = assembleInject(ctx, getLabToggles(), Date.now());
   await setRaw(lastFedKey(ns), { system: systemPrompt, inject, tailCount: tail.length, at: Date.now() } satisfies LastFed);
+  devlog('last-fed', { ns, user: text, system: systemPrompt, inject, tail: tail.map(m => ({ role: m.role, text: m.text })) });
   let full = '';
   for await (const chunk of chatPort.stream(tail, systemPrompt, inject)) { full += chunk; yield chunk; }
   await engine.ingestModel(full);
