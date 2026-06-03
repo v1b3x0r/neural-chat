@@ -1,5 +1,0 @@
-{
-  "name": "Chronos Memory Chat",
-  "description": "A sophisticated chat application with Episodic and Temporal memory capabilities, using Gemini to manage and retrieve long-term context without slowing down the browser.",
-  "requestFramePermissions": []
-}
