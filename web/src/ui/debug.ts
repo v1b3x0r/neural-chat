@@ -45,7 +45,7 @@ export function mountMemoryPane(host: HTMLElement): { open: () => void } {
 
     // Lab — control what we feed the LLM next turn, and see what was fed last turn.
     const t = getLabToggles();
-    const toggle = (key: 'time' | 'self' | 'episodic' | 'prospective' | 'tail', label: string): HTMLElement => {
+    const toggle = (key: 'time' | 'self' | 'episodic' | 'prospective' | 'tail' | 'selfState', label: string): HTMLElement => {
       const cb = el('input', { type: 'checkbox', checked: t[key] });
       cb.addEventListener('change', () => setLabToggles({ ...getLabToggles(), [key]: cb.checked }));
       return el('label', { className: 'mem-toggle' }, [cb, ` ${label}`]);
@@ -65,6 +65,7 @@ export function mountMemoryPane(host: HTMLElement): { open: () => void } {
 
     host.append(el('div', { className: 'drawer-section' }, [
       el('h3', { textContent: '🔬 Lab — feed เข้า LLM (มีผล turn ถัดไป)' }),
+      toggle('selfState', '🪞 self-state (รู้ตัวเอง)'),
       toggle('time', '⏱ time'), posSel,
       toggle('self', '🧬 self'), toggle('episodic', '📎 episodic'), toggle('prospective', '🎯 prospective'), toggle('tail', '💬 tail (ข้อความล่าสุด)'),
       el('div', { className: 'drawer-label', textContent: '📤 last fed (turn ล่าสุด)' }), fedBox,
