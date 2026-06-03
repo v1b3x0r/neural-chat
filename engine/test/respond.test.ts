@@ -19,6 +19,19 @@ describe('respond (full turn)', () => {
     await tm.respond('hi');
     expect(tm.storage.snap.lastTick).toBeGreaterThan(0);
   });
+
+  it('a re-tick with no new messages does not re-extract already-ticked messages', async () => {
+    const tm = new TimeMachine({ seed: 1 });
+    // Two scripted extract results; the turn's single tick must consume exactly the first.
+    tm.chat.extractQueue.push(
+      { episodic: [{ content: 'user likes mds', importance: 8, tags: ['mds'] }], prospective: [] },
+      { episodic: [{ content: 'must-not-be-consumed', importance: 8, tags: ['x'] }], prospective: [] },
+    );
+    await tm.respond('hi');                       // ingestModel(ts=BASE) → tick(lastTick=BASE), extracts #1
+    expect(tm.chat.extractQueue.length).toBe(1);
+    await tm.engine.tick();                        // same clock, no new messages: ts > lastTick is empty
+    expect(tm.chat.extractQueue.length).toBe(1);   // extract NOT called again (would be 0 under the `>=` bug)
+  });
 });
 
 describe('formatInjection', () => {

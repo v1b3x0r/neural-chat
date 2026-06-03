@@ -112,8 +112,11 @@ export class MemoryEngine {
     decay(snap.episodic, { now, lastTick: snap.lastTick, tau: this.cfg.tau });
     reinforce(snap.episodic, { lastTick: snap.lastTick, boost: this.cfg.boost });
 
-    // EXTRACT from messages since last tick
-    const recent = snap.messages.filter(m => m.ts >= snap.lastTick);
+    // EXTRACT from messages strictly newer than the last tick. `lastTick` is the boundary already
+    // processed (set to `now` below), and respond() calls ingestModel(full) then tick() on the same
+    // millisecond clock — so `>=` would re-extract the just-ingested model message on the next tick,
+    // duplicating its episodic/prospective memories.
+    const recent = snap.messages.filter(m => m.ts > snap.lastTick);
     if (recent.length) {
       const ex = await this.d.chat.extract(recent);
       for (const e of ex.episodic) {
