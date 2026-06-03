@@ -1,4 +1,6 @@
-import { AMBIENT } from './config';
+import { AMBIENT, getActiveProfile } from './config';
+import { makeStorage, getRaw } from './storage';
+import type { WorldSnapshot } from './world';
 
 export type WorldFeedHealth  = 'fresh' | 'stale' | 'unavailable';
 export type EmbeddingsHealth = 'ready' | 'degraded' | 'unavailable';
@@ -78,4 +80,26 @@ export function formatSelfState(s: SelfState): string {
   const lines = ['[Self-state]', `สถานะตอนนี้: ${facts.join(' · ')}`];
   if (dir.length) lines.push(`(ปรับท่าที: ${dir.join(' ')})`);
   return lines.join('\n');
+}
+
+/** The ONLY IO fn here (mirrors world.ts IO vs ambient.ts pure). Reads live runtime → SelfState. */
+export async function gatherSelfState(ns: string): Promise<SelfState> {
+  const now = Date.now();
+  const online = navigator.onLine;
+  const llm = llmKind(getActiveProfile().chat.baseURL);
+
+  const snap = await makeStorage(ns).load();
+  const latest = snap.episodic.length
+    ? snap.episodic.reduce((a, b) => (b.createdAt > a.createdAt ? b : a))
+    : undefined;
+  const embeddings = classifyEmbeddings(latest?.embedding);
+
+  const log = await getRaw<WorldSnapshot[]>('worldlog:' + ns);
+  const newestWorldTs = log && log.length ? log[log.length - 1]!.ts : null;
+  const worldFeed = classifyWorldFeed(newestWorldTs, now);
+  const worldFeedAgeMs = newestWorldTs === null ? null : now - newestWorldTs;
+
+  const memoryAgeMs = snap.lastTick === 0 ? null : now - snap.lastTick;
+
+  return { online, llm, embeddings, worldFeed, worldFeedAgeMs, memoryAgeMs };
 }
