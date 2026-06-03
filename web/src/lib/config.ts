@@ -51,8 +51,8 @@ export function getEmbedCfg() { const p = getActiveProfile(); return { baseURL: 
 export const AMBIENT = { ambientRefreshMs: 30 * 60_000, salienceK: 2, baselineWindow: 48, worldlogCap: 672 };
 
 // Lab: which injection components are fed to the LLM each turn (tune from the 🧠 pane). All-on = same as engine.respond().
-export interface LabToggles { time: boolean; timePos: 'top' | 'end'; self: boolean; episodic: boolean; prospective: boolean; tail: boolean }
-const DEFAULT_TOGGLES: LabToggles = { time: true, timePos: 'top', self: true, episodic: true, prospective: true, tail: true };
+export interface LabToggles { time: boolean; timePos: 'top' | 'end'; self: boolean; episodic: boolean; prospective: boolean; tail: boolean; selfState: boolean }
+const DEFAULT_TOGGLES: LabToggles = { time: true, timePos: 'top', self: true, episodic: true, prospective: true, tail: true, selfState: true };
 const LS_LAB = 'nc.lab';
 export function getLabToggles(): LabToggles {
   try { return { ...DEFAULT_TOGGLES, ...JSON.parse(localStorage.getItem(LS_LAB) ?? '{}') }; }

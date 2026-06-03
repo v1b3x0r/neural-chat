@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { PROFILES, getActiveProfile, setActiveProfile, getChatCfg, getEmbedCfg, setKey, setChatModel } from '../src/lib/config';
+import { PROFILES, getActiveProfile, setActiveProfile, getChatCfg, getEmbedCfg, setKey, setChatModel, getLabToggles } from '../src/lib/config';
 
 beforeEach(() => localStorage.clear());
 
@@ -28,5 +28,11 @@ describe('config profiles', () => {
     expect(getChatCfg().model).toBe('gemma4:e2b');   // profile fallback
     setChatModel('gemma3:12b');
     expect(getChatCfg().model).toBe('gemma3:12b');    // override from the fetched list
+  });
+});
+
+describe('LabToggles selfState default', () => {
+  it('defaults selfState ON', () => {
+    expect(getLabToggles().selfState).toBe(true);
   });
 });
