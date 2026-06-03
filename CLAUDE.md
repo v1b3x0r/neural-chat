@@ -18,10 +18,13 @@ Side project of the Viibe World OS workspace (not the HomeLog sprint). Resume co
 
 ## Commands
 
-Run from `web/` (the app):
+**First-time setup** — the engine must be built before the web app can import it (`web/` links the engine's prebuilt `dist/` via `file:../engine`, and `dist/` is gitignored):
 ```bash
-cd web && npm install
-cd web && npm run dev          # http://localhost:5173 (Vite)
+cd engine && npm install       # the `prepare` hook builds dist/ automatically on install
+cd ../web && npm install && npm run dev   # → http://localhost:5173 (Vite)
+```
+Then, working in `web/` (the app):
+```bash
 cd web && npm test             # vitest (run once)
 cd web && npx vitest run test/selfstate.test.ts   # a single test file
 cd web && npx tsc --noEmit     # typecheck (expect 0 errors)

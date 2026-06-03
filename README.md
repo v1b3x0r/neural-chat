@@ -28,8 +28,9 @@ you ── talk ──▶  retrieve a few relevant memories + recent turns  ─�
 **Prerequisites:** [Node.js](https://nodejs.org) and [Ollama](https://ollama.com) running locally.
 
 ```bash
-ollama pull gemma4:e2b embeddinggemma   # a chat model + an embedding model
-cd web && npm install && npm run dev     # → http://localhost:5173
+ollama pull gemma4:e2b embeddinggemma    # a chat model + an embedding model
+cd engine && npm install                 # builds the memory engine (web links it via file:../engine)
+cd ../web && npm install && npm run dev   # → http://localhost:5173
 ```
 
 Open the app, say hi to เชียงใหม่. Switch model/provider in the ☰ drawer (Ollama · LM Studio · OpenRouter · OpenAI). Open the 🧠 pane to inspect live memory and tune exactly what the model is fed.
