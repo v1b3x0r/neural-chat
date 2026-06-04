@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { embedOnce } from '../provider/openaiCompat.js';
 import { safeUrl } from '../provider/adapters.js';
+import { parseExtract } from '../provider/adapters.js';
 
 describe('safeUrl', () => {
   it('accepts http(s), rejects other schemes', () => {
@@ -34,5 +35,29 @@ describe('embedOnce', () => {
     const fetchMock = vi.fn(async () => { throw new Error('offline'); }) as unknown as typeof fetch;
     const v = await embedOnce({ baseURL: 'http://x/v1', apiKey: '', model: 'm' }, 'hi', fetchMock);
     expect(v).toBeNull();
+  });
+});
+
+describe('parseExtract (back-compat defaults + passthrough of 1A fields)', () => {
+  it('passes source_name/subject/said_by straight through', () => {
+    const r = parseExtract(JSON.stringify({
+      episodic: [{ content: 'วี ชอบตลาด', importance: 7, tags: ['m'], source_name: 'วี', subject: { person_name: 'วี' }, said_by: 'user' }],
+      prospective: [], resolved: [],
+    }));
+    expect(r.episodic[0]!.source_name).toBe('วี');
+    expect(r.episodic[0]!.subject).toEqual({ person_name: 'วี' });
+    expect(r.episodic[0]!.said_by).toBe('user');
+  });
+
+  it('defaults a legacy response (no 1A fields) to empty arrays / undefined fields — back-compat', () => {
+    const r = parseExtract(JSON.stringify({ episodic: [{ content: 'c', importance: 5, tags: [] }] }));
+    expect(r.episodic[0]!.content).toBe('c');
+    expect(r.episodic[0]!.source_name).toBeUndefined();
+    expect(r.prospective).toEqual([]);
+    expect(r.resolved).toEqual([]);
+  });
+
+  it('returns empty result on malformed JSON', () => {
+    expect(parseExtract('not json')).toEqual({ episodic: [], prospective: [], resolved: [] });
   });
 });
