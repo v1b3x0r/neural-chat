@@ -184,12 +184,12 @@ describe('1A consolidation symmetry (person tiers decay/reinforce/prune like ent
     const now = tm.clock.now();
     tm.storage.snap.persons = { person_a: { episodic: [
       { id: 'keep', content: 'person likes mds', embedding: await tm.embed.embed('person likes mds'), importance: 6, strength: 0.6, createdAt: now, lastRecalledAt: -1, tags: ['mds'], crystallizeAt: 4, sourceMsgIds: [], source: 'person_a', source_type: 'user', subject: 'person_a' },
-      { id: 'die', content: 'random person trivia', embedding: await tm.embed.embed('random person trivia'), importance: 6, strength: 0.6, createdAt: now, lastRecalledAt: -1, tags: ['x'], crystallizeAt: 4, sourceMsgIds: [], source: 'person_a', source_type: 'user', subject: 'person_a' },
+      { id: 'die', content: 'random trivia', embedding: await tm.embed.embed('random trivia'), importance: 6, strength: 0.6, createdAt: now, lastRecalledAt: -1, tags: ['x'], crystallizeAt: 4, sourceMsgIds: [], source: 'person_a', source_type: 'user', subject: 'person_a' },
     ] } };
     for (let d = 0; d < 8; d++) { await tm.retrieve('person likes mds'); await tm.advanceAndTick(3); }
     const contents = tm.storage.snap.persons!['person_a']!.episodic.map(m => m.content);
     expect(contents).toContain('person likes mds');     // reinforced via retrieve stamping lastRecalledAt
-    expect(contents).not.toContain('random person trivia');
+    expect(contents).not.toContain('random trivia');
   });
 
   it('detectPatterns/crystallize stay ENTITY-ONLY (a recurring person tag does not crystallize a selfFacet)', async () => {
@@ -199,5 +199,37 @@ describe('1A consolidation symmetry (person tiers decay/reinforce/prune like ent
       await tm.advanceAndTick(1);
     }
     expect(tm.selfTier()).toHaveLength(0);              // person tier excluded from crystallization in 1A
+  });
+});
+
+describe('1A transitional retrieval (pool = entity ∪ persons, no privacy gate)', () => {
+  it('a person memory can be retrieved, gets lastRecalledAt stamped, and survives save/reload', async () => {
+    const tm = new TimeMachine({ seed: 1 });
+    const now = tm.clock.now();
+    // entity memory (unrelated) + person memory (the match). ASCII content so FakeEmbed produces non-zero vectors.
+    tm.storage.snap.episodic.push({
+      id: 'ent', content: 'the shop opens at 8am', embedding: await tm.embed.embed('the shop opens at 8am'),
+      importance: 6, strength: 0.6, createdAt: now, lastRecalledAt: -1, tags: ['shop'], crystallizeAt: 4,
+      sourceMsgIds: [], source: null, source_type: 'ambient', subject: 'world',
+    });
+    tm.storage.snap.persons = { person_a: { episodic: [{
+      id: 'per', content: 'vee is looking for a new job', embedding: await tm.embed.embed('vee is looking for a new job'),
+      importance: 7, strength: 0.7, createdAt: now, lastRecalledAt: -1, tags: ['job'], crystallizeAt: 4,
+      sourceMsgIds: [], source: 'person_a', source_type: 'user', subject: 'person_a',
+    }] } };
+    const ctx = await tm.retrieve('vee looking for a new job how');
+    expect(ctx.episodic.map(m => m.id)).toContain('per');           // person memory is in the MMR pool
+    // stamped on the LIVE person array (refs into snap ⇒ persists on save)
+    expect(tm.storage.snap.persons!['person_a']!.episodic[0]!.lastRecalledAt).toBe(now);
+    // survives reload (InMemoryStorage already round-trips the whole snapshot)
+    const reloaded = await tm.storage.load();
+    expect(reloaded.persons!['person_a']!.episodic[0]!.lastRecalledAt).toBe(now);
+  });
+
+  it('InjectionContext shape is byte-identical (selfTier/episodic/prospective/tail; episodic is EpisodicMemory[])', async () => {
+    const tm = new TimeMachine({ seed: 1 });
+    const ctx = await tm.retrieve('anything');
+    expect(Object.keys(ctx).sort()).toEqual(['episodic', 'prospective', 'selfTier', 'tail']);
+    expect(Array.isArray(ctx.episodic)).toBe(true);
   });
 });

@@ -69,26 +69,13 @@ export class MemoryEngine {
     snap.personRegistry ??= {};
     snap.interactions ??= [];
     const qv = (await this.d.embed.embed(query)) ?? [];
-    const picks = mmrSearch(qv, snap.episodic, {
+    // Transitional pool: entity ∪ all-person episodic, UNSCOPED (the privacy gate is 1B; this is its seam).
+    const pool = [...snap.episodic, ...Object.values(snap.persons).flatMap(p => p.episodic)];
+    const picks = mmrSearch(qv, pool, {
       topK: this.cfg.retrieveTopK, lambda: this.cfg.mmrLambda, minSimilarity: this.cfg.retrieveMinSimilarity,
     });
-    const picked = picks.map(p => snap.episodic.find(e => e.id === p.item.id)!);
+    const picked = picks.map(p => pool.find(e => e.id === p.item.id)!);
     for (const m of picked) m.lastRecalledAt = now;
-
-    // Stamp lastRecalledAt on the best-matching person-tier memory per person tier.
-    // This is the prerequisite for tick()'s reinforce loop to work on person tiers:
-    // without the stamp, person memories would decay but never reinforce.
-    // topK=1 per person so only the most semantically relevant memory is stamped
-    // (Task 8 will surface person picks in InjectionContext; here we only maintain the timestamp.)
-    for (const pm of Object.values(snap.persons)) {
-      const personPicks = mmrSearch(qv, pm.episodic, {
-        topK: 1, lambda: this.cfg.mmrLambda, minSimilarity: this.cfg.retrieveMinSimilarity,
-      });
-      for (const p of personPicks) {
-        const mem = pm.episodic.find(e => e.id === p.item.id);
-        if (mem) mem.lastRecalledAt = now;
-      }
-    }
 
     // Trigger: a pending intent surfaces only when the moment matches its clue.
     // Reinforce-on-trigger lives here (the moment of relevance), not in tick.
