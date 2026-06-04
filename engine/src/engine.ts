@@ -57,6 +57,7 @@ export class MemoryEngine {
       id: uid('e'), content: e.content, embedding,
       importance: e.importance, strength: e.importance / 10, createdAt: now, lastRecalledAt: -1,
       tags: e.tags, imageUri: e.imageUri, crystallizeAt: this.d.random.int(3, 7), sourceMsgIds: [],
+        source: null, source_type: 'ambient', subject: 'world',
     });
     await this.d.storage.save(snap);
   }

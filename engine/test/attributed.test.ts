@@ -145,3 +145,16 @@ describe('1A placement (subject → tier; echo-chamber kill)', () => {
     expect(pos.selfTier().length).toBeGreaterThan(0);                // world facts crystallize identity
   });
 });
+
+describe('1A ambient attribution', () => {
+  it('addEpisodic stamps subject=world, source=null, source_type=ambient', async () => {
+    const tm = new TimeMachine({ seed: 1 });
+    await tm.engine.addEpisodic({ content: 'อากาศเย็นผิดปกติเช้านี้', importance: 6, tags: ['weather'] });
+    const mem = tm.storage.snap.episodic.at(-1)!;
+    expect(mem.subject).toBe('world');
+    expect(mem.source).toBeNull();
+    expect(mem.source_type).toBe('ambient');
+    // and it stays in the entity tier (world → entity)
+    expect(Object.keys(tm.storage.snap.persons ?? {})).toHaveLength(0);
+  });
+});
