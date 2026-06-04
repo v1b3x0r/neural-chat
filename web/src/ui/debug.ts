@@ -88,12 +88,21 @@ export function mountMemoryPane(host: HTMLElement): { open: () => void } {
         bar(m.strength),
       ))));
 
-    // prospective intents
-    host.append(section('Prospective', snap.prospective.length, snap.prospective
-      .map(p => card(
+    // prospective — pending shown live (strength + dormant/triggered); archive collapsed to a count.
+    // Legacy rows persisted before the resolution feature lack strength/lastTriggeredAt until a tick
+    // normalizes them; coalesce so opening the pane on old data never throws (str defaults to priority/5).
+    const strengthOf = (p: { strength: number; priority: number }) => (typeof p.strength === 'number' ? p.strength : p.priority / 5);
+    const pend = snap.prospective.filter(p => p.status === 'pending').sort((a, b) => strengthOf(b) - strengthOf(a));
+    const resolved = snap.prospective.filter(p => p.status === 'resolved').length;
+    const abandoned = snap.prospective.filter(p => p.status === 'abandoned').length;
+    host.append(section('Prospective · pending', pend.length, [
+      ...pend.map(p => card(
         el('div', { textContent: p.intent }),
-        el('div', { className: 'mem-stat', textContent: `${p.status} · prio ${p.priority} · clue: ${p.contextClue || '—'}` }),
-      ))));
+        el('div', { className: 'mem-stat', textContent: `str ${strengthOf(p).toFixed(2)} · prio ${p.priority} · ${(typeof p.lastTriggeredAt === 'number' && p.lastTriggeredAt >= 0) ? 'triggered' : 'dormant'} · clue: ${p.contextClue || '—'}` }),
+        bar(strengthOf(p)),
+      )),
+      el('div', { className: 'mem-stat', textContent: `archive — ${resolved} done · ${abandoned} faded` }),
+    ]));
 
     // injection tap — show the EXACT string the LLM receives for a query
     const tapInput = el('input', { type: 'text', placeholder: 'พิมพ์ query แล้วดู injection จริง...' });

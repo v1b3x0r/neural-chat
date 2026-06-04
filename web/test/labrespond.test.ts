@@ -6,7 +6,7 @@ import type { InjectionContext } from '@nature-labs/living-memory-engine';
 const ctx: InjectionContext = {
   selfTier: [{ id: 's', statement: 'I am the city', kind: 'value', strength: 1, updatedAt: 0 }],
   episodic: [{ id: 'e', content: 'air is bad', embedding: null, importance: 5, strength: 0.5, createdAt: 0, lastRecalledAt: -1, tags: ['world'], crystallizeAt: 0, sourceMsgIds: [] }],
-  prospective: [{ id: 'p', intent: 'ask about trip', status: 'pending', priority: 3, contextClue: '', createdAt: 0 }],
+  prospective: [{ id: 'p', intent: 'ask about trip', status: 'pending', priority: 3, contextClue: '', createdAt: 0, clueEmbedding: null, strength: 0.6, lastTriggeredAt: -1 }],
   tail: [{ id: 'm', role: 'user', text: 'hi', ts: 0 }],
 };
 const ALL: LabToggles = { time: true, timePos: 'top', self: true, episodic: true, prospective: true, tail: true, selfState: true };
