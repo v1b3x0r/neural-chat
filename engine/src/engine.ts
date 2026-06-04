@@ -1,5 +1,5 @@
 import {
-  DEFAULT_CONFIG, type EngineConfig, type Message, type InjectionContext,
+  DEFAULT_CONFIG, type EngineConfig, type Message, type InjectionContext, type EpisodicMemory,
 } from './types.js';
 import type {
   StoragePort, EmbedPort, ChatPort, Clock, Random, CrystallizePolicy,
@@ -7,6 +7,7 @@ import type {
 import { mmrSearch, cosineSimilarity } from './vector.js';
 import { decay, reinforce, merge, prune, detectPatterns, decayProspective, abandonWeakProspective, capProspective } from './consolidation.js';
 import { formatInjection } from './inject.js';
+import { placeMemory, resolvePerson } from './attribution.js';
 
 const DAY = 86_400_000;
 
@@ -169,11 +170,37 @@ export class MemoryEngine {
         if (p && p.status === 'pending') p.status = 'resolved';
       }
       for (const e of ex.episodic) {
-        snap.episodic.push({
+        // Provenance: who SAID it (source) + the kind of source (source_type from said_by).
+        const src = resolvePerson(e.source_name, snap.personRegistry, now, () => uid('person'));
+        const source = src.personId;
+        const source_type: EpisodicMemory['source_type'] = e.said_by === 'self' ? 'self' : 'user';
+
+        // Subject: who/what it is ABOUT. {person_name} resolves to an id via the SAME resolver;
+        // 'world'/'self' sentinels pass through; absent ⇒ 'world'.
+        let subject: string;
+        const s = e.subject;
+        if (s && typeof s === 'object' && 'person_name' in s) {
+          subject = resolvePerson(s.person_name, snap.personRegistry, now, () => uid('person')).personId ?? 'world';
+        } else if (s === 'self') {
+          subject = 'self';
+        } else {
+          subject = 'world'; // 'world', null, undefined all land here
+        }
+
+        const mem = {
           id: uid('e'), content: e.content, embedding: await this.d.embed.embed(e.content),
           importance: e.importance, strength: e.importance / 10, createdAt: now, lastRecalledAt: -1,
           tags: e.tags, crystallizeAt: this.d.random.int(3, 7), sourceMsgIds: [],
-        });
+          source, source_type, subject,
+        };
+
+        const place = placeMemory(subject);
+        if (place.tier === 'entity') {
+          snap.episodic.push(mem);                                  // today's exact behavior
+        } else if (place.tier === 'person') {
+          (snap.persons[place.personId] ??= { episodic: [] }).episodic.push(mem);
+        }
+        // place.tier === 'interaction' (subject === 'self'): push NOTHING — echo-chamber kill.
       }
       for (const p of ex.prospective) {
         const clueEmbedding = await this.d.embed.embed(p.contextClue || p.intent);
