@@ -75,6 +75,21 @@ export class MemoryEngine {
     const picked = picks.map(p => snap.episodic.find(e => e.id === p.item.id)!);
     for (const m of picked) m.lastRecalledAt = now;
 
+    // Stamp lastRecalledAt on the best-matching person-tier memory per person tier.
+    // This is the prerequisite for tick()'s reinforce loop to work on person tiers:
+    // without the stamp, person memories would decay but never reinforce.
+    // topK=1 per person so only the most semantically relevant memory is stamped
+    // (Task 8 will surface person picks in InjectionContext; here we only maintain the timestamp.)
+    for (const pm of Object.values(snap.persons)) {
+      const personPicks = mmrSearch(qv, pm.episodic, {
+        topK: 1, lambda: this.cfg.mmrLambda, minSimilarity: this.cfg.retrieveMinSimilarity,
+      });
+      for (const p of personPicks) {
+        const mem = pm.episodic.find(e => e.id === p.item.id);
+        if (mem) mem.lastRecalledAt = now;
+      }
+    }
+
     // Trigger: a pending intent surfaces only when the moment matches its clue.
     // Reinforce-on-trigger lives here (the moment of relevance), not in tick.
     const triggered = snap.prospective.filter(p => {
@@ -156,6 +171,13 @@ export class MemoryEngine {
     reinforce(snap.episodic, { lastTick: snap.lastTick, boost: this.cfg.boost });
     decayProspective(snap.prospective, { now, lastTick: snap.lastTick, tau: this.cfg.tau });
 
+    // Person tiers decay/reinforce on the SAME curve. retrieve() stamps lastRecalledAt on person
+    // episodic, so this reinforce MUST run here or person memories decay without ever reinforcing.
+    for (const pm of Object.values(snap.persons)) {
+      decay(pm.episodic, { now, lastTick: snap.lastTick, tau: this.cfg.tau });
+      reinforce(pm.episodic, { lastTick: snap.lastTick, boost: this.cfg.boost });
+    }
+
     // EXTRACT from messages strictly newer than the last tick. `lastTick` is the boundary already
     // processed (set to `now` below), and respond() calls ingestModel(full) then tick() on the same
     // millisecond clock — so `>=` would re-extract the just-ingested model message on the next tick,
@@ -229,6 +251,11 @@ export class MemoryEngine {
 
     snap.episodic = merge(snap.episodic, this.cfg);
     snap.episodic = prune(snap.episodic, this.cfg.floor);
+
+    // Same merge/prune over each person tier (no new math; same cfg). Crystallize stays entity-only below.
+    for (const pm of Object.values(snap.persons)) {
+      pm.episodic = prune(merge(pm.episodic, this.cfg), this.cfg.floor);
+    }
 
     // Self-facet decay (slower than episodic), per-facet by its own age, before crystallize.
     const selfTau = this.cfg.tau * this.cfg.selfDecayTauMultiplier;

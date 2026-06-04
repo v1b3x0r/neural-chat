@@ -158,3 +158,46 @@ describe('1A ambient attribution', () => {
     expect(Object.keys(tm.storage.snap.persons ?? {})).toHaveLength(0);
   });
 });
+
+describe('1A consolidation symmetry (person tiers decay/reinforce/prune like entity)', () => {
+  function seedPerson(tm: TimeMachine, personId: string, content: string, importance: number, tags: string[]) {
+    const now = tm.clock.now();
+    tm.storage.snap.persons ??= {};
+    (tm.storage.snap.persons[personId] ??= { episodic: [] }).episodic.push({
+      id: `pe_${content}`, content, embedding: [1, 0, 0], importance, strength: importance / 10,
+      createdAt: now, lastRecalledAt: -1, tags, crystallizeAt: 4, sourceMsgIds: [],
+      source: personId, source_type: 'user', subject: personId,
+    });
+  }
+
+  it('an unrecalled person memory decays below floor and is pruned (parity with entity DECAY)', async () => {
+    const tm = new TimeMachine({ seed: 1 });
+    seedPerson(tm, 'person_a', 'a low-importance person fact', 3, ['ptag']);
+    await tm.advanceAndTick(60);
+    expect(tm.storage.snap.persons!['person_a']!.episodic.find(m => m.content === 'a low-importance person fact')).toBeUndefined();
+  });
+
+  it('a recalled person memory survives where an unrecalled one dies (parity with entity REINFORCE)', async () => {
+    const tm = new TimeMachine({ seed: 1 });
+    // pre-register so retrieve's pool/embedding line up; seed two person memories with distinct embeddings
+    tm.storage.snap.personRegistry = { person_a: { id: 'person_a', known_names: ['A'], createdAt: 0, lastSeenAt: 0, interactionCount: 1 } };
+    const now = tm.clock.now();
+    tm.storage.snap.persons = { person_a: { episodic: [
+      { id: 'keep', content: 'person likes mds', embedding: await tm.embed.embed('person likes mds'), importance: 6, strength: 0.6, createdAt: now, lastRecalledAt: -1, tags: ['mds'], crystallizeAt: 4, sourceMsgIds: [], source: 'person_a', source_type: 'user', subject: 'person_a' },
+      { id: 'die', content: 'random person trivia', embedding: await tm.embed.embed('random person trivia'), importance: 6, strength: 0.6, createdAt: now, lastRecalledAt: -1, tags: ['x'], crystallizeAt: 4, sourceMsgIds: [], source: 'person_a', source_type: 'user', subject: 'person_a' },
+    ] } };
+    for (let d = 0; d < 8; d++) { await tm.retrieve('person likes mds'); await tm.advanceAndTick(3); }
+    const contents = tm.storage.snap.persons!['person_a']!.episodic.map(m => m.content);
+    expect(contents).toContain('person likes mds');     // reinforced via retrieve stamping lastRecalledAt
+    expect(contents).not.toContain('random person trivia');
+  });
+
+  it('detectPatterns/crystallize stay ENTITY-ONLY (a recurring person tag does not crystallize a selfFacet)', async () => {
+    const tm = new TimeMachine({ seed: 2024, policy: 'fixed' });
+    for (let i = 0; i < 8; i++) {
+      seedPerson(tm, 'person_a', `person mds talk ${i}`, 9, ['pmds']);
+      await tm.advanceAndTick(1);
+    }
+    expect(tm.selfTier()).toHaveLength(0);              // person tier excluded from crystallization in 1A
+  });
+});
