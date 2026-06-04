@@ -24,3 +24,38 @@ describe('1A migration (v0 snapshot loads + ticks clean)', () => {
     expect(ctx.episodic).toEqual([]);
   });
 });
+
+describe('1A interaction ledger + Message.speaker', () => {
+  it('ingestUser stamps msg.speaker and appends an Interaction(role user)', async () => {
+    const tm = new TimeMachine({ seed: 1 });
+    await tm.engine.ingestUser('hi there', undefined, 'person_7');
+    const msg = tm.storage.snap.messages.at(-1)!;
+    expect(msg.speaker).toBe('person_7');
+    const ix = tm.storage.snap.interactions!.at(-1)!;
+    expect(ix.msgId).toBe(msg.id);
+    expect(ix.role).toBe('user');
+    expect(ix.source).toBe('person_7');
+    expect(ix.source_type).toBe('user');
+    expect(ix.ts).toBe(tm.clock.now());
+  });
+
+  it('ingestUser with no speaker → speaker null, Interaction.source null (unknown speaker, still source_type user)', async () => {
+    const tm = new TimeMachine({ seed: 1 });
+    await tm.engine.ingestUser('hi');
+    const msg = tm.storage.snap.messages.at(-1)!;
+    expect(msg.speaker ?? null).toBeNull();
+    const ix = tm.storage.snap.interactions!.at(-1)!;
+    expect(ix.source).toBeNull();
+    expect(ix.source_type).toBe('user');
+  });
+
+  it('ingestModel appends an Interaction(role model, source_type self, source null)', async () => {
+    const tm = new TimeMachine({ seed: 1 });
+    await tm.engine.ingestModel('a reply');
+    const ix = tm.storage.snap.interactions!.at(-1)!;
+    expect(ix.role).toBe('model');
+    expect(ix.source_type).toBe('self');
+    expect(ix.source).toBeNull();
+    expect(ix.msgId).toBe(tm.storage.snap.messages.at(-1)!.id);
+  });
+});

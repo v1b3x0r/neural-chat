@@ -23,16 +23,24 @@ export class MemoryEngine {
   private cfg: EngineConfig;
   constructor(private d: EngineDeps) { this.cfg = { ...DEFAULT_CONFIG, ...d.config }; }
 
-  async ingestUser(text: string, image?: { dataUrl: string; mime: string }): Promise<void> {
+  async ingestUser(
+    text: string,
+    image?: { dataUrl: string; mime: string },
+    speaker?: string | null,
+  ): Promise<void> {
     const snap = await this.d.storage.load();
+    snap.interactions ??= [];
     const now = this.d.clock.now();
-    const msg: Message = { id: uid('m'), role: 'user', text, ts: now };
+    const msg: Message = { id: uid('m'), role: 'user', text, ts: now, speaker: speaker ?? null };
     if (image) {
       msg.imageMime = image.mime;
       const desc = await this.d.chat.describeImage(image.dataUrl);
       msg.text = text ? `${text}\n[image: ${desc}]` : `[image: ${desc}]`;
     }
     snap.messages.push(msg);
+    snap.interactions.push({
+      id: uid('i'), msgId: msg.id, source: speaker ?? null, source_type: 'user', role: 'user', ts: now,
+    });
     await this.d.storage.save(snap);
   }
 
@@ -87,7 +95,13 @@ export class MemoryEngine {
 
   async ingestModel(text: string): Promise<void> {
     const snap = await this.d.storage.load();
-    snap.messages.push({ id: uid('m'), role: 'model', text, ts: this.d.clock.now() });
+    snap.interactions ??= [];
+    const now = this.d.clock.now();
+    const msg: Message = { id: uid('m'), role: 'model', text, ts: now };
+    snap.messages.push(msg);
+    snap.interactions.push({
+      id: uid('i'), msgId: msg.id, source: null, source_type: 'self', role: 'model', ts: now,
+    });
     await this.d.storage.save(snap);
   }
 
