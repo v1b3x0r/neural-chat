@@ -5,6 +5,7 @@ export interface Message {
   imageUri?: string;
   imageMime?: string;
   ts: number;
+  speaker?: string | null;
 }
 
 export interface SelfFacet {
@@ -28,6 +29,28 @@ export interface EpisodicMemory {
   imageMime?: string;
   crystallizeAt: number; // per-memory threshold (for the per-memory random variant)
   sourceMsgIds: string[];
+  // --- 1A attribution (all optional ⇒ existing rows & ambient deserialize unchanged) ---
+  source?: string | null;                              // person.id who said/observed it; null = unknown speaker
+  source_type?: 'user' | 'ambient' | 'self' | 'system';// kind of source — set on every new memory
+  subject?: string | null;                             // 'world' | 'self' | a person.id ; absent ⇒ 'world'
+}
+
+// --- 1A: person identity + per-person memory + interaction ledger ---
+export interface Person {
+  id: string;            // STABLE synthetic opaque id (uid('person')); NEVER derived from a name
+  known_names: string[]; // appended on each sighting; an attribute, never a key
+  createdAt: number;
+  lastSeenAt: number;
+  interactionCount: number;
+}
+export interface PersonMemory { episodic: EpisodicMemory[]; } // pure episodic; no per-person selfFacets/prospective in 1A
+export interface Interaction {
+  id: string;
+  msgId: string;
+  source: string | null;
+  source_type: 'user' | 'self' | 'system';
+  role: 'user' | 'model';
+  ts: number;
 }
 
 export interface ProspectiveMemory {
