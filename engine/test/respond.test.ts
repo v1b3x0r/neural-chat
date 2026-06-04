@@ -43,7 +43,7 @@ describe('formatInjection', () => {
     const out = formatInjection({
       selfTier: [{ id: 's', statement: 'replies tersely', kind: 'voice', strength: 1, updatedAt: 0 }],
       episodic: [{ id: 'e', content: 'user builds MDS', embedding: [1], importance: 8, strength: 1, createdAt: 0, lastRecalledAt: 0, tags: [], crystallizeAt: 4, sourceMsgIds: [] }],
-      prospective: [{ id: 'p', intent: 'ship the engine', status: 'pending', priority: 3, contextClue: '', createdAt: 0 }],
+      prospective: [{ id: 'p', intent: 'ship the engine', status: 'pending', priority: 3, contextClue: '', createdAt: 0, clueEmbedding: null, strength: 0.6, lastTriggeredAt: -1 }],
       tail: [],
     });
     expect(out).toContain('[Who you are]');

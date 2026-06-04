@@ -37,6 +37,9 @@ export interface ProspectiveMemory {
   priority: number;
   contextClue: string;
   createdAt: number;
+  clueEmbedding: number[] | null; // embed(contextClue); null = embed failed, backfilled in tick
+  strength: number;               // decays like episodic; abandoned when it falls below the floor
+  lastTriggeredAt: number;        // -1 = never triggered (used for cooldown)
 }
 
 export interface PatternEvidence {
@@ -61,6 +64,12 @@ export interface EngineConfig {
   mmrLambda: number;
   tailN: number; // recent raw messages included in injection
   minCrystallizeImportance: number; // pattern avgImportance gate
+  prospectiveTriggerSim: number;   // cosine(query, clueEmbedding) >= this -> intent surfaces this turn
+  prospectiveFloor: number;        // abandon a pending intent below this strength
+  prospectiveCooldownDays: number; // after triggering, wait this long before it can trigger again
+  prospectiveDedupeSim: number;    // a new intent whose clue is this similar to a pending one is merged in
+  prospectiveActiveCap: number;    // max pending intents kept (strongest survive) — caps a burst of distinct intents
+  prospectiveArchiveCap: number;   // max resolved+abandoned intents kept (newest survive) — bounds the "graveyard"
 }
 
 export const DEFAULT_CONFIG: EngineConfig = {
@@ -77,6 +86,12 @@ export const DEFAULT_CONFIG: EngineConfig = {
   mmrLambda: 0.5,
   tailN: 8,
   minCrystallizeImportance: 5,
+  prospectiveTriggerSim: 0.4,
+  prospectiveFloor: 0.05,
+  prospectiveCooldownDays: 1,
+  prospectiveDedupeSim: 0.9,
+  prospectiveActiveCap: 24,
+  prospectiveArchiveCap: 50,
 };
 
 export interface InjectionContext {

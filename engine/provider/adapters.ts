@@ -34,14 +34,21 @@ export function makeChatPort(cfg: EndpointConfig, fetchImpl: typeof fetch = fetc
       return (await collect(chatStream(cfg, body, fetchImpl))).trim();
     },
 
-    async extract(recent: Message[]): Promise<ExtractResult> {
+    async extract(recent: Message[], pending: { id: string; intent: string }[] = []): Promise<ExtractResult> {
+      const pendingBlock = pending.length
+        ? '\n\nIntents you previously formed but have not yet acted on (id: intent). ' +
+          'For any the exchange above has now addressed, fulfilled, or made irrelevant, put its id in "resolved":\n' +
+          pending.map(p => `${p.id}: ${p.intent}`).join('\n')
+        : '';
       const prompt =
         'Extract durable facts and anticipatory intents from this chat as JSON ' +
-        '{"episodic":[{"content","importance"(1-10),"tags":[]}],"prospective":[{"intent","priority"(1-5),"contextClue"}]}.\n\n' +
-        recent.map(m => `${m.role}: ${m.text}`).join('\n');
+        '{"episodic":[{"content","importance"(1-10),"tags":[]}],' +
+        '"prospective":[{"intent","priority"(1-5),"contextClue"}],"resolved":["id"]}. ' +
+        'contextClue is a short phrase naming the topic/situation that should make this intent resurface later.\n\n' +
+        recent.map(m => `${m.role}: ${m.text}`).join('\n') + pendingBlock;
       const out = await collect(chatStream(cfg, { messages: [{ role: 'user', content: prompt }], response_format: { type: 'json_object' } }, fetchImpl));
-      try { const j = JSON.parse(out); return { episodic: j.episodic ?? [], prospective: j.prospective ?? [] }; }
-      catch { return { episodic: [], prospective: [] }; }
+      try { const j = JSON.parse(out); return { episodic: j.episodic ?? [], prospective: j.prospective ?? [], resolved: j.resolved ?? [] }; }
+      catch { return { episodic: [], prospective: [], resolved: [] }; }
     },
 
     async summarizePattern(members: EpisodicMemory[]): Promise<{ statement: string; kind: SelfFacet['kind'] }> {

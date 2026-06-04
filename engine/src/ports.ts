@@ -29,12 +29,13 @@ export interface EmbedPort {
 export interface ExtractResult {
   episodic: { content: string; importance: number; tags: string[] }[];
   prospective: { intent: string; priority: number; contextClue: string }[];
+  resolved?: string[]; // ids of previously-pending intents this exchange has addressed
 }
 
 export interface ChatPort {
   stream(messages: Message[], systemPrompt: string, inject: string): AsyncIterable<string>;
   describeImage(dataUrl: string): Promise<string>;
-  extract(recent: Message[]): Promise<ExtractResult>;
+  extract(recent: Message[], pending?: { id: string; intent: string }[]): Promise<ExtractResult>;
   summarizePattern(members: EpisodicMemory[]): Promise<{ statement: string; kind: SelfFacet['kind'] }>;
 }
 

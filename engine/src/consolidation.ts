@@ -1,5 +1,5 @@
 import { cosineSimilarity } from './vector.js';
-import type { EngineConfig, EpisodicMemory, PatternEvidence } from './types.js';
+import type { EngineConfig, EpisodicMemory, PatternEvidence, ProspectiveMemory } from './types.js';
 
 const DAY = 86_400_000;
 
@@ -54,6 +54,41 @@ export function merge(mems: EpisodicMemory[], cfg: EngineConfig): EpisodicMemory
 
 export function prune(mems: EpisodicMemory[], floor: number): EpisodicMemory[] {
   return mems.filter(m => m.strength >= floor);
+}
+
+// Prospective intents decay on the same curve as episodic memory: an intent that
+// never re-triggers fades. Reinforcement happens at trigger time (in retrieve), not here.
+export function decayProspective(
+  ps: ProspectiveMemory[],
+  o: { now: number; lastTick: number; tau: number },
+): void {
+  for (const p of ps) {
+    if (p.status !== 'pending') continue;
+    const from = Math.max(p.createdAt, o.lastTick);
+    const dtDays = Math.max(0, (o.now - from) / DAY);
+    p.strength *= Math.exp(-dtDays / o.tau);
+  }
+}
+
+// A faded intent is forgotten (the friend "lets it go") — status, not deletion,
+// so the UI can still show "we never got around to this".
+export function abandonWeakProspective(ps: ProspectiveMemory[], floor: number): void {
+  for (const p of ps) {
+    if (p.status === 'pending' && p.strength < floor) p.status = 'abandoned';
+  }
+}
+
+// Bound the list so it never grows without limit (archive, not infinite ledger):
+// keep the strongest `activeCap` pending intents and the most-recent `archiveCap`
+// resolved/abandoned ones. The two tiers have separate budgets, so a full archive
+// never evicts an active intent.
+export function capProspective(
+  ps: ProspectiveMemory[],
+  o: { activeCap: number; archiveCap: number },
+): ProspectiveMemory[] {
+  const pending = ps.filter(p => p.status === 'pending').sort((a, b) => b.strength - a.strength);
+  const dead = ps.filter(p => p.status !== 'pending').sort((a, b) => b.createdAt - a.createdAt);
+  return [...pending.slice(0, o.activeCap), ...dead.slice(0, o.archiveCap)];
 }
 
 export function detectPatterns(mems: EpisodicMemory[]): PatternEvidence[] {

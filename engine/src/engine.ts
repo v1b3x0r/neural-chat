@@ -4,8 +4,8 @@ import {
 import type {
   StoragePort, EmbedPort, ChatPort, Clock, Random, CrystallizePolicy,
 } from './ports.js';
-import { mmrSearch } from './vector.js';
-import { decay, reinforce, merge, prune, detectPatterns } from './consolidation.js';
+import { mmrSearch, cosineSimilarity } from './vector.js';
+import { decay, reinforce, merge, prune, detectPatterns, decayProspective, abandonWeakProspective, capProspective } from './consolidation.js';
 import { formatInjection } from './inject.js';
 
 const DAY = 86_400_000;
@@ -61,11 +61,23 @@ export class MemoryEngine {
     });
     const picked = picks.map(p => snap.episodic.find(e => e.id === p.item.id)!);
     for (const m of picked) m.lastRecalledAt = now;
+
+    // Trigger: a pending intent surfaces only when the moment matches its clue.
+    // Reinforce-on-trigger lives here (the moment of relevance), not in tick.
+    const triggered = snap.prospective.filter(p => {
+      if (p.status !== 'pending' || !p.clueEmbedding) return false;
+      const cooled = p.lastTriggeredAt < 0
+        || (now - p.lastTriggeredAt) / DAY >= this.cfg.prospectiveCooldownDays;
+      if (!cooled) return false;
+      return cosineSimilarity(qv, p.clueEmbedding) >= this.cfg.prospectiveTriggerSim;
+    });
+    for (const p of triggered) { p.lastTriggeredAt = now; p.strength += this.cfg.boost; }
+
     await this.d.storage.save(snap);
     return {
       selfTier: snap.selfFacets,
       episodic: picked,
-      prospective: snap.prospective.filter(p => p.status === 'pending'),
+      prospective: triggered,
       tail: snap.messages.slice(-this.cfg.tailN),
     };
   }
@@ -109,8 +121,16 @@ export class MemoryEngine {
     const snap = await this.d.storage.load();
     const now = this.d.clock.now();
 
+    // Normalize intents persisted before this feature (whole-snapshot JSON has no migration).
+    for (const p of snap.prospective) {
+      if (typeof p.strength !== 'number') p.strength = p.priority / 5;
+      if (typeof p.lastTriggeredAt !== 'number') p.lastTriggeredAt = -1;
+      if (p.clueEmbedding === undefined) p.clueEmbedding = null;
+    }
+
     decay(snap.episodic, { now, lastTick: snap.lastTick, tau: this.cfg.tau });
     reinforce(snap.episodic, { lastTick: snap.lastTick, boost: this.cfg.boost });
+    decayProspective(snap.prospective, { now, lastTick: snap.lastTick, tau: this.cfg.tau });
 
     // EXTRACT from messages strictly newer than the last tick. `lastTick` is the boundary already
     // processed (set to `now` below), and respond() calls ingestModel(full) then tick() on the same
@@ -118,7 +138,14 @@ export class MemoryEngine {
     // duplicating its episodic/prospective memories.
     const recent = snap.messages.filter(m => m.ts > snap.lastTick);
     if (recent.length) {
-      const ex = await this.d.chat.extract(recent);
+      const pending = snap.prospective
+        .filter(p => p.status === 'pending')
+        .map(p => ({ id: p.id, intent: p.intent }));
+      const ex = await this.d.chat.extract(recent, pending);
+      for (const id of ex.resolved ?? []) {
+        const p = snap.prospective.find(q => q.id === id);
+        if (p && p.status === 'pending') p.status = 'resolved';
+      }
       for (const e of ex.episodic) {
         snap.episodic.push({
           id: uid('e'), content: e.content, embedding: await this.d.embed.embed(e.content),
@@ -127,12 +154,28 @@ export class MemoryEngine {
         });
       }
       for (const p of ex.prospective) {
-        snap.prospective.push({ id: uid('p'), intent: p.intent, status: 'pending', priority: p.priority, contextClue: p.contextClue, createdAt: now });
+        const clueEmbedding = await this.d.embed.embed(p.contextClue || p.intent);
+        const dup = clueEmbedding
+          ? snap.prospective.find(q => q.status === 'pending' && q.clueEmbedding
+              && cosineSimilarity(q.clueEmbedding, clueEmbedding) >= this.cfg.prospectiveDedupeSim)
+          : undefined;
+        if (dup) { dup.strength += this.cfg.boost; continue; }
+        snap.prospective.push({
+          id: uid('p'), intent: p.intent, status: 'pending', priority: p.priority,
+          contextClue: p.contextClue, createdAt: now,
+          clueEmbedding, strength: p.priority / 5, lastTriggeredAt: -1,
+        });
       }
     }
 
     // BACKFILL embeddings that failed earlier
     for (const m of snap.episodic) if (!m.embedding) m.embedding = await this.d.embed.embed(m.content);
+    for (const p of snap.prospective) if (p.status === 'pending' && !p.clueEmbedding) p.clueEmbedding = await this.d.embed.embed(p.contextClue || p.intent);
+
+    abandonWeakProspective(snap.prospective, this.cfg.prospectiveFloor);
+    snap.prospective = capProspective(snap.prospective, {
+      activeCap: this.cfg.prospectiveActiveCap, archiveCap: this.cfg.prospectiveArchiveCap,
+    });
 
     snap.episodic = merge(snap.episodic, this.cfg);
     snap.episodic = prune(snap.episodic, this.cfg.floor);

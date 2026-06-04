@@ -1,4 +1,5 @@
 import { MemoryEngine } from '../src/engine.js';
+import type { EngineConfig } from '../src/types.js';
 import { SeededRandom } from '../src/random.js';
 import { fixedK, randomK } from '../src/policy.js';
 import { FakeClock, InMemoryStorage, FakeEmbed, FakeChat } from './fakes.js';
@@ -14,11 +15,11 @@ export class TimeMachine {
   chat = new FakeChat();
   engine: MemoryEngine;
 
-  constructor(opts: { seed: number; policy?: 'fixed' | 'random' }) {
+  constructor(opts: { seed: number; policy?: 'fixed' | 'random'; config?: Partial<EngineConfig> }) {
     const policy = opts.policy === 'fixed' ? fixedK(3) : randomK(3, 7);
     this.engine = new MemoryEngine({
       storage: this.storage, embed: this.embed, chat: this.chat,
-      clock: this.clock, random: new SeededRandom(opts.seed), policy,
+      clock: this.clock, random: new SeededRandom(opts.seed), policy, config: opts.config,
     });
   }
 
