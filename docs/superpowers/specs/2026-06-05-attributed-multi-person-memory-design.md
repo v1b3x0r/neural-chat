@@ -178,6 +178,8 @@ All placement flows through **one** call to `placeMemory(subject)` in `tick()`, 
 - **`source_type`** is set from the attributed message's role: `user` message ⇒ `'user'`, model message ⇒ `'self'`. Ambient memories set `'ambient'` at `addEpisodic` (see below).
 
 > **self-vs-world is the LLM's call** — the one real correctness soft-spot. A world observation mis-labeled `'self'` would be dropped (no episodic). Accepted for 1A as a *prompt-quality* issue: the **mechanism** is correct given the label; label quality is iterative tuning, guarded by an explicit test that entity world-observations still land in the entity tier.
+>
+> *Future-tuning breadcrumb (CTO, 2026-06-05):* pure self-assertion (*"ฉันชอบฝน"*) is correctly `self`→interaction, but **self-narration that carries a world observation** (*"ช่วงนี้ฉันมีคนถามเรื่องตลาดนัดเยอะ"*) blends `self` + `world` and is where mislabels will surface first. This is the expected place future prompt tuning lands — not a 1A blocker.
 
 ## Person registry & resolution
 
