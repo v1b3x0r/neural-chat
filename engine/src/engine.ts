@@ -55,6 +55,9 @@ export class MemoryEngine {
   async retrieve(query: string): Promise<InjectionContext> {
     const snap = await this.d.storage.load();
     const now = this.d.clock.now();
+    snap.persons ??= {};
+    snap.personRegistry ??= {};
+    snap.interactions ??= [];
     const qv = (await this.d.embed.embed(query)) ?? [];
     const picks = mmrSearch(qv, snap.episodic, {
       topK: this.cfg.retrieveTopK, lambda: this.cfg.mmrLambda, minSimilarity: this.cfg.retrieveMinSimilarity,
@@ -120,6 +123,11 @@ export class MemoryEngine {
   async tick(): Promise<void> {
     const snap = await this.d.storage.load();
     const now = this.d.clock.now();
+
+    // Normalize 1A tiers persisted before this feature (whole-snapshot JSON has no migration).
+    snap.persons ??= {};
+    snap.personRegistry ??= {};
+    snap.interactions ??= [];
 
     // Normalize intents persisted before this feature (whole-snapshot JSON has no migration).
     for (const p of snap.prospective) {
