@@ -1,6 +1,6 @@
 # neural-chat — NEXT SESSION (warp point)
 
-> Read THIS first to resume. Side project (not HomeLog). Last big session: 2026-06-03 (self-state grounding built + merged to main). Prior: 2026-06-02 (the web pivot + ambient oracle).
+> Read THIS first to resume. Side project (not HomeLog). Last big session: 2026-06-05 (prospective-resolution + Spec 1A attributed multi-person memory, both merged to main). Prior: 2026-06-03 (self-state grounding), 2026-06-02 (web pivot + ambient oracle).
 > One-line: a personal **living-memory chat** — talk forever; a TS memory engine decays/consolidates/crystallizes instead of stuffing context. Now a **plain web app** whose star is **เชียงใหม่**, a province-entity that observes the real world (Open-Meteo) and greets you first. Runs fully local on Ollama.
 
 ## ✅ DONE + VERIFIED LIVE 2026-06-02 — web pivot, Phase 1 + Phase 2
@@ -19,16 +19,27 @@ Pivoted the frontend from Expo → **plain web** (Vite vanilla, no React) + **ui
 
 The 2026-06-02 "concept only" core direction is **implemented and live**. 5-signal interoception (`online · llm local/remote · embeddings · world_feed fresh/stale · memory age`) injected as a `[Self-state]` block at the top of every turn via `labRespond`, gated by the 🪞 lab toggle (default ON). Facts always; a `(ปรับท่าที: …)` self-directive only when a signal is off-nominal. Code: `lib/selfstate.ts` (`gatherSelfState` + pure `formatSelfState`), **34 tests** (63 web tests total green, tsc 0). Spec/plan condensed (7 TDD tasks) under `docs/superpowers/`. Also added: **devlog file sink** (`lib/devlog.ts` → `web/.debug/dev.log`, dev-only) to read the real prompt fed to the LLM.
 
+## ✅ SHIPPED 2026-06-05 — prospective-resolution + Spec 1A (both engine, merged to main)
+
+**prospective-resolution:** cue-triggered lifecycle (dormant→trigger→reinforce→resolve→decay→abandon→archive-cap). See the earlier backlog entry; `consolidation.ts` helpers + debug-pane pending/archive split.
+
+**Spec 1A — Attributed Multi-Person Memory** (the **Social Reality Model** foundation; `memory/social-reality-model-direction.md` + `docs/superpowers/specs/2026-06-05-attributed-multi-person-memory-design.md` + plan `…/plans/2026-06-05-attributed-memory-1a.md`). **Engine-only** (web untouched = the deliberate "engine-only proof"): every episodic memory carries `source` / `source_type`('user'|'ambient'|'self'|'system') / `subject`('world'|'self'|person-id); placement routes by subject into **entity / per-person / interaction** tiers; the **echo-chamber kill is structural** (subject='self' → interaction log → never an episodic → never a SelfFacet); person identity = stable synthetic `person-id`, names are appended `known_names[]` never keys. New `engine/src/attribution.ts` (placeMemory/resolvePerson/deriveVisibility) + interaction ledger + transitional unified-pool retrieve (the 1B privacy-filter seam). **engine 36→92 tests**, build clean, tsc 0. Live-verified on real chiangmai data (back-compat: 63 old memories load through new engine, 0 errors; interaction ledger user+model with correct source_type). Built via full superpowers flow (brainstorm→spec→plan→subagent-driven TDD 10 tasks→adversarial reviews). **MERGED to main** (ff `79390a9`), NOT pushed.
+
+**Known limits (by design):** 1A does NOT surface in the web UI and does NOT retroactively clean OLD polluted memory (forward-looking) — chiangmai's pre-1A Self-tier/episodic still hold echo-chamber junk. 🧹 ล้างสมอง for a clean sample.
+
+## ▶ NEXT: Spec 1B — Retrieval & Identity (founder-requested start = debug-pane viz)
+The visible half: **privacy-scoped retrieval** (insert the viewer/visibility filter at the `retrieve()` pool-union seam — already pre-built), **relationship-derived display** ("คนที่ชอบเดินตลาด"), **emergent naming** (infer+confirm / ask-after-relationship / alias-merge of split person-ids). **Founder-requested starting point:** a `web/src/ui/debug.ts` viz surfacing the new 1A structures — 👥 Persons (id + known_names + facts), 🔗 Interactions ledger, source/subject attribution badges on episodic cards — so 1A becomes visible. Then **Spec 2** (semantic clustering / corroboration / confidence→phrasing + self-facet dedup).
+
 ## Resume in 30 seconds
 ```bash
 # Ollama must be running with models pulled:
-ollama pull gemma4:e2b && ollama pull embeddinggemma   # chat + embed (default "Local (Ollama)" profile)
+ollama pull gemma4:e4b-mlx && ollama pull embeddinggemma   # chat + embed (MLX is faster on Apple Silicon; e2b deleted)
 cd web && npm install && npm run dev                   # http://localhost:5173
-cd web && npm test                                     # 63 tests green
+cd web && npm test                                     # 63 web tests green; engine: cd engine && npm test → 92
 cd web && npx tsc --noEmit                              # 0 errors
 ```
 - Default model profile = **Local (Ollama)** `localhost:11434/v1`. Switch profile/model in the ☰ drawer (LM Studio / OpenRouter+local-embed / OpenAI Direct). Other machine (4070ti) = LM Studio.
-- gemma4:e2b is slow on Mac (~20–40s per turn incl. the tick/extract LLM call). Be patient; the greeting/observe are background.
+- **gemma4:e4b-mlx** (current on M3 Air 16GB; founder swapped from gguf e2b) is still slow (~20–40s chat + a SEPARATE ~30–120s tick/extract call). The extract is the slow tail — attribution lands seconds-to-minutes after the visible reply. Greeting/observe run in the background.
 
 ## Architecture (`web/`)
 - `src/lib/` — `storage.ts` (IndexedDB StoragePort + kv) · `config.ts` (ModelProfile presets + AMBIENT knobs: ambientRefreshMs/salienceK/baselineWindow/worldlogCap) · `models.ts` (fetch /v1/models) · `personas.ts` (CHIANGMAI seed, ambient+prompts) · `engine.ts` (getEngine→{engine,storage,chatPort}, resetEngines) · `theme.ts` · `world.ts` · `ambient.ts` · `data/chiangmai.ts`.
