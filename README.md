@@ -1,14 +1,14 @@
-# neural-chat — living-memory chat
+# Living Memory Engine
 
-A personal chat where you talk to an entity that **remembers like a mind, not a log**.
+A TypeScript memory substrate for agents that remember like a mind, not a log — decay, consolidation, crystallization, MMR retrieval. Proven by เชียงใหม่ (Chiang Mai), a city-entity that senses the real world and remembers you across sessions. Runs on Qwen Cloud.
 
-Most chat apps stuff the whole conversation back into the prompt until it overflows. neural-chat instead runs a small TypeScript **memory engine** that *decays, consolidates, and crystallizes* memories over time — so you can talk forever and each turn the model only ever sees a small, relevant working set. Runs **fully local** on [Ollama](https://ollama.com) (no keys, no cloud required).
+> Experimental side project. Single user, evolving fast. Local-first (Ollama) or Qwen Cloud — your choice, same engine.
 
-The star is **เชียงใหม่** — a persona that *is* the city. It senses the real world (live weather & air quality), notices when something feels off, and greets you first. And it knows its own state: whether it's online, thinking on a local or remote brain, whether its memory and senses are working — and it speaks more honestly when they aren't.
+## The problem
 
-> Experimental side project. Local-first, single user, evolving fast.
+Most chat apps solve "remembering" the cheap way: stuff the entire conversation back into every prompt until it overflows the context window, or bolt on naive RAG that retrieves by similarity alone and never forgets, contradicts itself, or consolidates what it's learned. Neither models how memory actually works — forgetting is a feature, not a bug: a mind decays what's stale, reinforces what's used, merges duplicates, and crystallizes durable traits out of repetition. Living Memory Engine is built to do exactly that, so an agent can run indefinitely on a small, bounded context window instead of an ever-growing transcript.
 
-## The idea in one picture
+## How memory works
 
 ```
 you ── talk ──▶  retrieve a few relevant memories + recent turns  ──▶  LLM
@@ -17,42 +17,24 @@ you ── talk ──▶  retrieve a few relevant memories + recent turns  ─�
               decay · merge · crystallize  ◀── consolidate (tick) ◀────┘
 ```
 
-- **No context stuffing.** The full history is never re-sent. Each turn retrieves the top-K most relevant memories (semantic search + diversity) plus a short tail.
+- **No context stuffing.** The full history is never re-sent. Each turn retrieves the top-K most relevant memories (semantic search + diversity via MMR) plus a short tail.
 - **Memory that settles.** After each turn the engine extracts new episodic memories, embeds them, decays old ones (Ebbinghaus-style), merges duplicates, and crystallizes stable traits into a "self".
 - **Senses, not just chat.**
   - *Exteroception* — an ambient loop reads เชียงใหม่'s real weather/air, scores how unusual it is against the city's own learned normal (diurnal z-score, no hardcoded thresholds), remembers it, and may greet you about it.
   - *Interoception* — a `[Self-state]` block tells the entity its own runtime condition (online · local/remote model · embeddings health · world-feed freshness · memory age) so it self-calibrates: speak from memory when the feed is stale, don't fake recall when embeddings are down, know when it's thinking alone.
 
-## Quick start
-
-**Prerequisites:** [Node.js](https://nodejs.org) and [Ollama](https://ollama.com) running locally.
-
-```bash
-ollama pull gemma4:e2b embeddinggemma    # a chat model + an embedding model
-cd engine && npm install                 # builds the memory engine (web links it via file:../engine)
-cd ../web && npm install && npm run dev   # → http://localhost:5173
+```mermaid
+flowchart LR
+  subgraph Browser["Browser (web/ — Vite + vanilla TS)"]
+    UI[chat.ts UI] --> LR[labRespond]
+    LR --> E[MemoryEngine\n retrieve / tick]
+    E --> IDB[(IndexedDB\n per-persona snapshots)]
+    AMB[ambient.ts\n Open-Meteo] --> E
+    SS[selfstate.ts] --> LR
+  end
+  LR -->|/api/qwen/v1| PX[Key-safe proxy\n .env.local QWEN_API_KEY]
+  PX -->|chat + embeddings| QW[Qwen Cloud\n Alibaba Cloud Model Studio\n qwen3.7-plus · text-embedding-v4]
 ```
-
-Open the app, say hi to เชียงใหม่. Switch model/provider in the ☰ drawer (Ollama · LM Studio · OpenRouter · OpenAI). Open the 🧠 pane to inspect live memory and tune exactly what the model is fed.
-
-```bash
-cd web && npm test          # unit tests
-cd web && npx tsc --noEmit  # typecheck
-```
-
-## What's inside
-
-| Dir | Role |
-|---|---|
-| `web/` | The app — Vite + vanilla TypeScript (no framework), IndexedDB storage, the ambient & self-state senses, and a Lab pane to inspect/tune the prompt. |
-| `engine/` | `@nature-labs/living-memory-engine` — the framework-agnostic memory engine (decay / consolidation / crystallization / retrieval). Pure ports & adapters; the web app just supplies a browser storage + an OpenAI-compatible LLM port. |
-| `mobile/` | An earlier Expo prototype. Frozen — superseded by `web/`. |
-
-The engine is provider-agnostic: any OpenAI-compatible endpoint works (Ollama, LM Studio, OpenRouter, OpenAI). Model names are **discovered** from `/v1/models`, never hardcoded.
-
-## Lab mode
-
-The 🧠 pane is a tuning instrument: a live view of the entity's memory (episodic / self / prospective, with strength and embeddings), the **exact prompt last fed to the model**, per-component toggles for what to inject, and a per-persona brain-wipe to re-run experiments from zero. You can also spin up new personas with a custom system prompt.
 
 ## Evaluation vs naive baseline
 
@@ -74,6 +56,68 @@ This offline harness uses that deterministic **lexical** fake-embedder, so each 
 | H4 expired memory forgotten | NO | no | 0 | ~0 | ~12 |
 
 **Honest read:** H1, H3, and H4 land as hypothesized — cross-session preference recall, critical-fact surfacing out of 31 candidates, and prune-based forgetting after ~12 weeks all check out at a fraction of full-history tokens. H2 is the more interesting finding, not a clean win: it retrieves *both* the old and new seat preference side-by-side, which documents that consolidation currently doesn't resolve superseded facts (no contradiction-aware merge) — a real product gap, not a script bug.
+
+## Alibaba Cloud deployment proof
+
+All chat and embedding inference for the "Qwen Cloud" profile runs on **Qwen Cloud / Alibaba Cloud Model Studio** (`https://dashscope-intl.aliyuncs.com/compatible-mode/v1`), not a local model. The browser never holds the API key — it talks to a same-origin dev proxy that injects the key server-side and enforces a path/model allowlist and a `max_tokens` cap before forwarding upstream:
+
+- [`web/src/lib/qwenproxy.ts`](web/src/lib/qwenproxy.ts) — pure request rules: allowed paths (`/models`, `/chat/completions`, `/embeddings`), model allowlist (`qwen*` for chat, `text-embedding-v4` for embeddings), forced `dimensions: 768` and `enable_thinking: false`.
+- [`web/vite.config.ts`](web/vite.config.ts) — the actual middleware wiring: `browser → /api/qwen/v1 → (key from web/.env.local QWEN_API_KEY) → dashscope-intl.aliyuncs.com`.
+- [`web/src/lib/config.ts`](web/src/lib/config.ts) — the `qwen` model profile (`chat: qwen3.7-plus`, `embed: text-embedding-v4`) selectable from the ☰ drawer.
+
+Console usage screenshots for the submission live in `docs/superpowers/hackathon/evidence/`.
+
+## Quick start
+
+**Qwen Cloud (recommended — no local model download):**
+
+```bash
+echo "QWEN_API_KEY=sk-..." > web/.env.local   # DashScope intl key
+cd engine && npm install                       # builds the memory engine (web links it via file:../engine)
+cd ../web && npm install && npm run dev         # → http://localhost:5173
+```
+
+Open the app, then in the ☰ drawer pick **"Qwen Cloud"** as the profile. Say hi to เชียงใหม่.
+
+**Local-first (Ollama), no keys, no cloud:**
+
+```bash
+ollama pull gemma4:e2b embeddinggemma    # a chat model + an embedding model
+cd engine && npm install                 # builds the memory engine (web links it via file:../engine)
+cd ../web && npm install && npm run dev   # → http://localhost:5173
+```
+
+Open the app, say hi to เชียงใหม่. Switch model/provider in the ☰ drawer (Ollama · LM Studio · OpenRouter · OpenAI · Qwen Cloud). Open the 🧠 pane to inspect live memory and tune exactly what the model is fed.
+
+```bash
+cd web && npm test          # unit tests
+cd web && npx tsc --noEmit  # typecheck
+```
+
+## What's inside
+
+| Dir | Role |
+|---|---|
+| `web/` | The app — Vite + vanilla TypeScript (no framework), IndexedDB storage, the ambient & self-state senses, and a Lab pane to inspect/tune the prompt. |
+| `engine/` | `@nature-labs/living-memory-engine` — the framework-agnostic memory engine (decay / consolidation / crystallization / retrieval). Pure ports & adapters; the web app just supplies a browser storage + an OpenAI-compatible LLM port. |
+| `mobile/` | An earlier Expo prototype. Frozen — superseded by `web/`. |
+
+The engine is provider-agnostic: any OpenAI-compatible endpoint works (Ollama, LM Studio, OpenRouter, OpenAI, Qwen Cloud). Model names are **discovered** from `/v1/models`, never hardcoded.
+
+## Lab mode
+
+The 🧠 pane is a tuning instrument: a live view of the entity's memory (episodic / self / prospective, with strength and embeddings), the **exact prompt last fed to the model**, per-component toggles for what to inject, and a per-persona brain-wipe to re-run experiments from zero. You can also spin up new personas with a custom system prompt.
+
+## Hackathon note
+
+Submitted to the **MemoryAgent** track. This repo (`neural-chat` — the app is titled "Living Memory Engine" for submission) was significantly updated after May 26, 2026:
+
+- **2026-06-02 → 06-05** — the web pivot (`web/` — Vite + vanilla TS, replacing the frozen Expo app), the ambient world-sensing oracle (`lib/ambient.ts`), interoceptive self-state grounding (`lib/selfstate.ts`), prospective-memory resolution, and Spec 1A attributed multi-person memory (source/subject/interaction ledger — PR [#2](https://github.com/v1b3x0r/neural-chat/pull/2)).
+- **2026-07-20** — Qwen Cloud integration (key-safe proxy, `qwen3.7-plus` + `text-embedding-v4`), the deterministic H1–H4 evaluation harness, the memory-lifecycle chip, and a restyle pass.
+
+Test suites: engine 92 passing, web 71 passing.
+
+**Roadmap:** a canonical 24/7 server-side entity (this repo is currently single-session, browser-local), background continuity between sessions, and privacy-scoped retrieval for attributed multi-person memory (Spec 1B).
 
 ---
 
