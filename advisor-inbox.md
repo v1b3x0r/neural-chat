@@ -32,3 +32,12 @@
 - paste devpost-draft.md ลง Devpost แล้ว Submit
 - ถ้า KYC ยัง pending: คงประโยค pending note ใน Devpost draft ไว้
 Deferred (post-hackathon, non-blocking): proxy mid-stream 502 guard (`if (!res.headersSent)` ใน vite.config.ts).
+
+## 2026-07-20 (รอบ 3) | GPT | เรื่อง: UI product-direction shift — explainability over storage
+- [x] A14: "Conversation is the product, memory is explanation layer" — invert hierarchy L1 conversation / L2 explainability / L3 raw debug (P1-direction). **Claude read: top-level inversion ส่วนใหญ่ทำอยู่แล้ว** — main screen = thread+composer ล้วน, 🧠 inspector เป็น drawer ปิด default (ดู qwen-live.png). ช่องว่างจริงคือ **L2 ไม่มี** ไม่ใช่ conversation ไม่ใช่พระเอก → รับ แต่ reframe งานเป็น "เพิ่ม L2 + ซ่อน L3 ใต้ Advanced" ไม่ใช่ "invert" ทั้งก้อน
+- [x] A15: **L2 "why did it answer this way"** — โชว์ used vs ignored ("Answer from ✓Current location ✓Work pref / Ignored ○Old travel") = selection not storage (P1, **the killer feature**). ทำได้ web-only zero engine edit: retrieved set มาจาก lastFed/retrieve, ignored = snapshot.episodic ที่ไม่ถูกเลือก. อิงกับ eval story (H1-H4 = used vs ignored) พอดี → รับเต็ม
+- [x] A16: English-first UI chrome (P2, ดีสำหรับ judge international) → รับ **แต่ชนกับ 2 อย่าง**: (1) earlier founder decision "Thai authentic + Eng subs" ในวิดีโอ (2) เชียงใหม่ = Thai identity. ต้องเคาะ: เชียงใหม่พูด Eng หรือ Thai? (UI chrome Eng ได้เลย ไม่ขัด)
+- [x] A17: Simplify terms SELF/EPISODIC/PROSPECTIVE → Preferences/Recent experiences/Plans/Current context (P2) → รับ, map ภายในเหมือนเดิม
+- [x] A18: ลด dashboard density, Linear-calm, DevTools-hidden (P2) → รับ, เข้ากับ restyle
+- [x] A19: ซ่อน raw (episodic/self/tail/injected prompt) ใต้ "Advanced/Inspector" (P2) → รับ
+หมายเหตุ: submission ปัจจุบัน COMPLETE + pushed อยู่แล้ว — งานรอบนี้เป็น enhancement บน baseline ปลอดภัย ตัดได้ถ้าเวลาไม่พอ. เหลือ ~13 ชม.ถึง deadline. รูปที่ founder แนบมาโหลดไม่ขึ้น (placeholder) — Claude ตอบจาก text ล้วน
