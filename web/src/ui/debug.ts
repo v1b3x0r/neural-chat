@@ -74,7 +74,7 @@ export function mountMemoryPane(host: HTMLElement): { open: () => void } {
     } else {
       const v = buildWhy(why.query, why.used, snap);
       whyKids.push(el('div', { className: 'why-query', textContent: `“${trunc(v.query, 90)}”` }));
-      whyKids.push(el('div', { className: 'why-lead', textContent: `Selected ${v.usedCount} of ${v.totalCount} context items for this reply. The engine composes context from memory, live signals and plans — and feeds the model only what's relevant.` }));
+      whyKids.push(el('div', { className: 'why-lead', textContent: `The engine selected ${v.usedCount} of ${v.totalCount} context items — from memory, live signals and plans — before the model generated this reply.` }));
       whyKids.push(el('div', { className: 'why-head used', textContent: `Used context (${v.usedCount})` }));
       whyKids.push(...(v.used.length ? whyList(v.used, true) : [el('div', { className: 'why-none', textContent: 'nothing selected this turn' })]));
       whyKids.push(el('div', { className: 'why-head available', textContent: `Available, not used (${v.available.length})` }));
