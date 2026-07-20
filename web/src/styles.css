@@ -2,18 +2,24 @@
    a system-serif masthead for the entity name. Restyle-only: no DOM/logic changes.
    Light is the designed theme; dark is a coherent warm-dark counterpart (theme toggle stays live). */
 :root {
+  color-scheme: light dark;   /* themes the browser canvas/overscroll (esp. iOS) so it is never white; follows OS until JS sets data-theme */
   --bg:#f7f3ec; --ambient:#ece2d2; --surface:#f0eadf; --text:#33302a; --subtext:#6e665a;
   --accent:#a1543a; --onAccent:#fdf8f2; --theirsBg:#ece4d6; --border:#ddd3c4;
   --r-bubble:16px; --r-field:12px;
   --serif:ui-serif,Georgia,"Iowan Old Style","Times New Roman",serif;
 }
+:root[data-theme="light"] { color-scheme: light; }
 :root[data-theme="dark"] {
+  color-scheme: dark;
   /* clean near-black (not warm-brown), gradient nearly flat so there's no two-tone wash; clay accent kept for brand coherence */
   --bg:#131215; --ambient:#171619; --surface:#1d1c21; --text:#ededed; --subtext:#a3a0a8;
   --accent:#c67a54; --onAccent:#17161a; --theirsBg:#201f25; --border:#2c2b32;
 }
 * { box-sizing:border-box; }
 html, body, #app { height:100%; }
+/* the ROOT canvas must carry the themed background — otherwise <html> is unpainted and shows white
+   in overscroll / safe-area / any uncovered region, in every mode. This is the actual base color of the page. */
+html { background-color: var(--bg); }
 body { margin:0; font-family:system-ui,-apple-system,sans-serif; color:var(--text);
   background: radial-gradient(120% 82% at 50% -12%, var(--ambient), var(--bg) 62%); }
 
