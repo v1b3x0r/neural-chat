@@ -49,3 +49,35 @@ describe('prune', () => {
     expect(out.map(m => m.id)).toEqual(['keep']);
   });
 });
+
+import { mergeSelfFacets } from '../src/consolidation.js';
+import type { SelfFacet } from '../src/types.js';
+
+const facet = (over: Partial<SelfFacet>): SelfFacet =>
+  ({ id: 'f', statement: 's', kind: 'value', strength: 1, updatedAt: 0, embedding: [1, 0], ...over });
+
+describe('mergeSelfFacets', () => {
+  it('collapses near-duplicate facets: keeps the stronger, sums strength', () => {
+    const facets = [
+      facet({ id: 'a', statement: 'humid jasmine', strength: 1, embedding: [1, 0] }),
+      facet({ id: 'b', statement: 'humid jasmine, reworded', strength: 2, embedding: [0.99, 0.01] }), // ~dup of a
+      facet({ id: 'c', statement: 'likes coffee', strength: 1, embedding: [0, 1] }),                  // distinct
+    ];
+    const out = mergeSelfFacets(facets, 0.88);
+    expect(out).toHaveLength(2);
+    const merged = out.find(f => f.statement.includes('humid'))!;
+    expect(merged.strength).toBe(3);   // 1 + 2
+    expect(merged.id).toBe('b');        // stronger survivor
+    expect(out.some(f => f.id === 'c')).toBe(true);
+  });
+
+  it('leaves distinct facets untouched', () => {
+    const facets = [facet({ id: 'a', embedding: [1, 0] }), facet({ id: 'b', embedding: [0, 1] })];
+    expect(mergeSelfFacets(facets, 0.88)).toHaveLength(2);
+  });
+
+  it('facets without an embedding pass through', () => {
+    const out = mergeSelfFacets([facet({ id: 'x', embedding: null }), facet({ id: 'y', embedding: undefined })], 0.88);
+    expect(out).toHaveLength(2);
+  });
+});

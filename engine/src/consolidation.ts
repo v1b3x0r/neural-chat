@@ -1,7 +1,32 @@
 import { cosineSimilarity } from './vector.js';
-import type { EngineConfig, EpisodicMemory, PatternEvidence, ProspectiveMemory } from './types.js';
+import type { EngineConfig, EpisodicMemory, PatternEvidence, ProspectiveMemory, SelfFacet } from './types.js';
 
 const DAY = 86_400_000;
+
+// Collapse near-duplicate self-facets. `summarizePattern` re-words the same recurring trait slightly
+// differently each tick ("emphasize sensory-rich humid" vs "evoke deeply immersive humid"), so exact-string
+// dedup lets ~identical facets pile up. Keep the strongest of a similar cluster and sum their strength.
+// Facets without an embedding pass through untouched (backfilled elsewhere before this runs).
+export function mergeSelfFacets(facets: SelfFacet[], threshold: number): SelfFacet[] {
+  const out: SelfFacet[] = [];
+  const consumed = new Set<string>();
+  for (const f of facets) {
+    if (consumed.has(f.id)) continue;
+    if (!f.embedding) { out.push(f); continue; }
+    let acc = f;
+    for (const g of facets) {
+      if (g.id === acc.id || consumed.has(g.id) || !g.embedding) continue;
+      if (cosineSimilarity(acc.embedding!, g.embedding) >= threshold) {
+        const strong = acc.strength >= g.strength ? acc : g;
+        acc = { ...strong, strength: acc.strength + g.strength, updatedAt: Math.max(acc.updatedAt, g.updatedAt) };
+        consumed.add(g.id);
+      }
+    }
+    consumed.add(f.id);
+    out.push(acc);
+  }
+  return out;
+}
 
 export function decay(
   mems: EpisodicMemory[],

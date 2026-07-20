@@ -5,7 +5,7 @@ import type {
   StoragePort, EmbedPort, ChatPort, Clock, Random, CrystallizePolicy,
 } from './ports.js';
 import { mmrSearch, cosineSimilarity } from './vector.js';
-import { decay, reinforce, merge, prune, detectPatterns, decayProspective, abandonWeakProspective, capProspective } from './consolidation.js';
+import { decay, reinforce, merge, prune, detectPatterns, decayProspective, abandonWeakProspective, capProspective, mergeSelfFacets } from './consolidation.js';
 import { formatInjection } from './inject.js';
 import { placeMemory, resolvePerson } from './attribution.js';
 
@@ -258,10 +258,19 @@ export class MemoryEngine {
       if (!this.d.policy.shouldCrystallize(ev, this.d.random)) continue;
       const members = snap.episodic.filter(m => ev.memberIds.includes(m.id));
       const { statement, kind } = await this.d.chat.summarizePattern(members);
-      const existing = snap.selfFacets.find(f => f.statement === statement);
-      if (existing) { existing.strength += this.cfg.boost; existing.updatedAt = now; }
-      else snap.selfFacets.push({ id: uid('s'), statement, kind, strength: 1, updatedAt: now });
+      const emb = await this.d.embed.embed(statement);
+      // Dedup: the same recurring trait, exact-worded OR re-worded (semantic). Reinforce instead of piling up.
+      const existing = snap.selfFacets.find(f =>
+        f.statement === statement ||
+        (!!emb && !!f.embedding && cosineSimilarity(emb, f.embedding) >= this.cfg.selfDedupeSim));
+      if (existing) { existing.strength += this.cfg.boost; existing.updatedAt = now; existing.embedding ??= emb; }
+      else snap.selfFacets.push({ id: uid('s'), statement, kind, strength: 1, updatedAt: now, embedding: emb });
     }
+
+    // Backfill embeddings on facets crystallized before this feature, then collapse any accumulated
+    // near-duplicates (so an already-cluttered self-tier self-heals on the next tick, no wipe needed).
+    for (const f of snap.selfFacets) if (!f.embedding) f.embedding = await this.d.embed.embed(f.statement);
+    snap.selfFacets = mergeSelfFacets(snap.selfFacets, this.cfg.selfDedupeSim);
 
     snap.selfFacets = snap.selfFacets
       .filter(f => f.strength >= this.cfg.selfFloor)

@@ -14,6 +14,7 @@ export interface SelfFacet {
   kind: 'voice' | 'value' | 'relationship';
   strength: number;
   updatedAt: number;
+  embedding?: number[] | null; // embed(statement); used to dedupe near-duplicate crystallized traits (the LLM re-words the same trait)
 }
 
 export interface EpisodicMemory {
@@ -82,6 +83,7 @@ export interface EngineConfig {
   selfTierCap: number; // max self-facets kept
   selfFloor: number; // prune self-facet below this strength
   selfDecayTauMultiplier: number; // self-facets decay slower than episodic
+  selfDedupeSim: number; // cosine >= this ⇒ a crystallized trait is the same as an existing facet (reinforce, don't duplicate)
   retrieveTopK: number;
   retrieveMinSimilarity: number; // recall/inject only above this similarity
   mmrLambda: number;
@@ -104,6 +106,7 @@ export const DEFAULT_CONFIG: EngineConfig = {
   selfTierCap: 12,
   selfFloor: 0.05,
   selfDecayTauMultiplier: 3,
+  selfDedupeSim: 0.88,
   retrieveTopK: 5,
   retrieveMinSimilarity: 0.15,
   mmrLambda: 0.5,
