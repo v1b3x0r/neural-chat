@@ -54,6 +54,25 @@ The engine is provider-agnostic: any OpenAI-compatible endpoint works (Ollama, L
 
 The 🧠 pane is a tuning instrument: a live view of the entity's memory (episodic / self / prospective, with strength and embeddings), the **exact prompt last fed to the model**, per-component toggles for what to inject, and a per-persona brain-wipe to re-run experiments from zero. You can also spin up new personas with a custom system prompt.
 
+## Evaluation vs naive baseline
+
+A deterministic script (`engine/eval/run.ts`) drives the real `MemoryEngine` through four hypothesis scenarios (H1–H4) and compares it against a naive "resend full history" baseline. It's a measurement, not a test suite — each row reports whatever actually happened, including scenarios where the hypothesis didn't hold. Reproduce with:
+
+```bash
+cd engine && npm run eval
+```
+
+Deterministic: seed `1337`, `FakeClock` starting at epoch 0, `FakeEmbed` (a 64-dim bag-of-words hash — lexical overlap only, no real semantics).
+
+| Hypothesis | Relevant recalled | Stale recalled | Memories injected | Engine inject tokens | Full-history tokens |
+|---|---|---|---|---|---|
+| H1 cross-session preference | NO | n/a | 1 | ~11 | ~140 |
+| H2 updated preference | yes | YES | 2 | ~25 | ~24 |
+| H3 critical in limited window | yes | n/a | 2 | ~23 | ~428 |
+| H4 expired memory forgotten | NO | no | 0 | ~0 | ~12 |
+
+**Honest read:** H3 and H4 land as hypothesized — the engine surfaces a critical fact out of 31 candidates at a fraction of full-history tokens, and correctly lets a low-importance memory decay past the prune floor over ~12 weeks. H1 and H2 are the more interesting findings, not clean wins: H1 misses because `FakeEmbed` is pure lexical bag-of-words and shares zero words between "coffee" and "oat-milk flat white," so it can't do the semantic leap a real embedding model would; H2 retrieves *both* the old and new seat preference side-by-side, which documents that consolidation currently doesn't resolve superseded facts (no contradiction-aware merge) — a real product gap, not a script bug.
+
 ---
 
 Built as part of the Viibe World OS — a system that knows it is a system.

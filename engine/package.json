@@ -16,7 +16,8 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "build": "tsc -p tsconfig.build.json",
-    "prepare": "npm run build"
+    "prepare": "npm run build",
+    "eval": "tsx eval/run.ts"
   },
   "devDependencies": {
     "typescript": "^5.6.0",
