@@ -36,3 +36,14 @@ describe('LabToggles selfState default', () => {
     expect(getLabToggles().selfState).toBe(true);
   });
 });
+
+describe('qwen profile', () => {
+  it('exists, points at the same-origin proxy, and never needs a client key', () => {
+    const q = PROFILES.find(p => p.id === 'qwen')!;
+    expect(q).toBeTruthy();
+    expect(q.chat.baseURL).toBe('/api/qwen/v1');
+    expect(q.embed.baseURL).toBe('/api/qwen/v1');
+    expect(q.embed.model).toBe('text-embedding-v4');
+    expect(q.needsKey).toBeFalsy();
+  });
+});

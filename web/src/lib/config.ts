@@ -18,6 +18,9 @@ export const PROFILES: ModelProfile[] = [
   { id: 'openai', label: 'OpenAI Direct', needsKey: true,
     chat:  { baseURL: 'https://api.openai.com/v1', model: 'gpt-4o-mini' },
     embed: { baseURL: 'https://api.openai.com/v1', model: 'text-embedding-3-small' } },
+  { id: 'qwen', label: 'Qwen Cloud',                  // hackathon profile — key lives server-side (web/.env.local → /api/qwen proxy)
+    chat:  { baseURL: '/api/qwen/v1', model: 'qwen3.7-plus' },
+    embed: { baseURL: '/api/qwen/v1', model: 'text-embedding-v4' } },
 ];
 
 const LS_PROFILE = 'nc.profile';
