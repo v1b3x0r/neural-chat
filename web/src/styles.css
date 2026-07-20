@@ -93,15 +93,21 @@ body { margin:0; font-family:system-ui,-apple-system,sans-serif; color:var(--tex
   border-radius:var(--r-field); padding:11px 14px; margin-bottom:20px; line-height:1.55; }
 .why-head { font-size:11px; text-transform:uppercase; letter-spacing:.07em; margin:20px 0 8px; }
 .why-head.used { color:var(--accent); }
-.why-head.ignored { color:var(--subtext); }
+.why-head.available { color:var(--subtext); }
 .why-group { margin-bottom:14px; }
-.why-concept { font-size:11px; color:var(--subtext); margin:11px 0 6px; }
+/* source badge — a semantic dot per context source (memory / live / plan) */
+.why-source { display:flex; align-items:center; gap:7px; font-size:11px; text-transform:uppercase;
+  letter-spacing:.06em; color:var(--subtext); margin:11px 0 6px; }
+.src-dot { flex:none; width:8px; height:8px; border-radius:50%; background:var(--subtext); }
+.src-memory .src-dot { background:#86709e; }
+.src-live .src-dot { background:#5f8f6e; }
+.src-plan .src-dot { background:#567f9c; }
 .why-item { display:flex; gap:11px; align-items:flex-start; font-size:13px; line-height:1.5; padding:5px 0; }
 .why-item .why-mark { flex:none; width:15px; font-size:12px; line-height:1.5; text-align:center; }
 .why-item.used { color:var(--text); }
 .why-item.used .why-mark { color:var(--accent); }
-.why-item.ignored { color:var(--subtext); }
-.why-item.ignored .why-mark { color:var(--border); }
+.why-item.available { color:var(--subtext); }
+.why-item.available .why-mark { color:var(--border); }
 .why-none, .why-empty { font-size:13px; color:var(--subtext); font-style:italic; line-height:1.5; }
 
 /* L3 — Advanced / inspector, collapsed by default */

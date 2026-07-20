@@ -4,7 +4,7 @@ import { getEngine, resetEngines } from '../lib/engine';
 import { getActivePersona, setActivePersona } from '../lib/personas';
 import { getLabToggles, setLabToggles, type LabToggles } from '../lib/config';
 import { getLastFed, getLastWhy } from '../lib/labrespond';
-import { buildWhy, byConcept, type WhyItem } from '../lib/why';
+import { buildWhy, bySource, type WhyItem, type Source } from '../lib/why';
 import { wipeWorld } from '../lib/ambient';
 import { el } from './dom';
 
@@ -16,14 +16,25 @@ function section(title: string, n: number, kids: Node[]): HTMLElement {
   return el('div', { className: 'drawer-section' }, [el('h3', { textContent: `${title} (${n})` }), ...kids]);
 }
 
-// L2: render a used/ignored memory list grouped under human concept headers.
+// A colored source badge — makes it clear the engine composes context from more than just memory.
+function sourceBadge(source: Source): HTMLElement {
+  return el('div', { className: `why-source src-${source.toLowerCase()}` }, [
+    el('span', { className: 'src-dot' }), source,
+  ]);
+}
+
+// L2: render a used/available context list grouped under its SOURCE badge; items truncated with full text on hover.
 function whyList(items: WhyItem[], used: boolean): HTMLElement[] {
-  return byConcept(items).map(g => el('div', { className: 'why-group' }, [
-    el('div', { className: 'why-concept', textContent: g.concept }),
-    ...g.items.map(i => el('div', { className: `why-item ${used ? 'used' : 'ignored'}` }, [
-      el('span', { className: 'why-mark', textContent: used ? '✓' : '○' }),
-      el('span', { textContent: trunc(i.text, 84) }),
-    ])),
+  return bySource(items).map(g => el('div', { className: 'why-group' }, [
+    sourceBadge(g.source),
+    ...g.items.map(i => {
+      const row = el('div', { className: `why-item ${used ? 'used' : 'available'}` }, [
+        el('span', { className: 'why-mark', textContent: used ? '✓' : '○' }),
+        el('span', { textContent: trunc(i.text, 58) }),
+      ]);
+      row.title = i.text; // full text on hover
+      return row;
+    }),
   ]));
 }
 
@@ -55,19 +66,19 @@ export function mountMemoryPane(host: HTMLElement): { open: () => void } {
       el('div', { className: 'pane-actions' }, [refresh, wipe]),
     ]));
 
-    // --- L2: WHY THIS ANSWER (the product story — selection, not storage) ---
+    // --- L2: WHY THIS ANSWER (the product story — context composition, not storage) ---
     const why = await getLastWhy(persona.id);
     const whyKids: Node[] = [];
     if (!why) {
-      whyKids.push(el('div', { className: 'why-empty', textContent: 'Chat first — then this shows which memories shaped the reply, and which were left out.' }));
+      whyKids.push(el('div', { className: 'why-empty', textContent: 'Chat first — then this shows the context the engine assembled for the reply, and what it had available but left out.' }));
     } else {
       const v = buildWhy(why.query, why.used, snap);
       whyKids.push(el('div', { className: 'why-query', textContent: `“${trunc(v.query, 90)}”` }));
-      whyKids.push(el('div', { className: 'why-lead', textContent: `Selected ${v.usedCount} of ${v.totalCount} memories for this answer. Only the relevant ones reach the model.` }));
-      whyKids.push(el('div', { className: 'why-head used', textContent: `Used (${v.usedCount})` }));
-      whyKids.push(...(v.used.length ? whyList(v.used, true) : [el('div', { className: 'why-none', textContent: 'nothing retrieved this turn' })]));
-      whyKids.push(el('div', { className: 'why-head ignored', textContent: `Available, not used (${v.ignored.length})` }));
-      whyKids.push(...(v.ignored.length ? whyList(v.ignored, false) : [el('div', { className: 'why-none', textContent: '—' })]));
+      whyKids.push(el('div', { className: 'why-lead', textContent: `Selected ${v.usedCount} of ${v.totalCount} context items for this reply. The engine composes context from memory, live signals and plans — and feeds the model only what's relevant.` }));
+      whyKids.push(el('div', { className: 'why-head used', textContent: `Used context (${v.usedCount})` }));
+      whyKids.push(...(v.used.length ? whyList(v.used, true) : [el('div', { className: 'why-none', textContent: 'nothing selected this turn' })]));
+      whyKids.push(el('div', { className: 'why-head available', textContent: `Available, not used (${v.available.length})` }));
+      whyKids.push(...(v.available.length ? whyList(v.available, false) : [el('div', { className: 'why-none', textContent: '—' })]));
     }
     host.append(el('div', { className: 'drawer-section why-section' }, [
       el('h3', { textContent: '✨ Why this answer' }),

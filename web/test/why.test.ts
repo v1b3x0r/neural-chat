@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildWhy, byConcept, type WhySnapshot, type UsedIds } from '../src/lib/why';
+import { buildWhy, bySource, type WhySnapshot, type UsedIds } from '../src/lib/why';
 
 const snap: WhySnapshot = {
   selfFacets: [
@@ -18,31 +18,31 @@ const snap: WhySnapshot = {
 };
 
 describe('buildWhy', () => {
-  it('splits stored memories into used vs ignored by the retrieved ids', () => {
+  it('splits candidate context into used vs available by the retrieved ids', () => {
     const used: UsedIds = { self: ['sf1'], episodic: ['e2'], prospective: ['p1'] };
     const w = buildWhy('what coffee do I like?', used, snap);
     expect(w.query).toBe('what coffee do I like?');
     expect(w.used.map(i => i.id).sort()).toEqual(['e2', 'p1', 'sf1']);
-    expect(w.ignored.map(i => i.id).sort()).toEqual(['e1', 'e3', 'sf2']);
+    expect(w.available.map(i => i.id).sort()).toEqual(['e1', 'e3', 'sf2']);
     expect(w.usedCount).toBe(3);
     expect(w.totalCount).toBe(6); // 2 self + 3 episodic + 1 pending prospective; resolved p2 excluded
   });
 
-  it('tags concepts: self=Preferences, ambient/world=Current context, other episodic=Recent experiences, pending prospective=Plans', () => {
+  it('tags source: self=Memory, ambient/world=Live, other episodic=Memory, pending prospective=Plan', () => {
     const w = buildWhy('q', { self: [], episodic: [], prospective: [] }, snap);
-    const byId = Object.fromEntries(w.ignored.map(i => [i.id, i.concept]));
-    expect(byId['sf1']).toBe('Preferences');
-    expect(byId['e2']).toBe('Current context');   // subject:world + ambient
-    expect(byId['e1']).toBe('Recent experiences'); // person subject
-    expect(byId['e3']).toBe('Recent experiences'); // no subject
-    expect(byId['p1']).toBe('Plans');
-    expect(byId['p2']).toBeUndefined();            // resolved intents are not live plans
+    const byId = Object.fromEntries(w.available.map(i => [i.id, i.source]));
+    expect(byId['sf1']).toBe('Memory');
+    expect(byId['e2']).toBe('Live');    // subject:world + ambient
+    expect(byId['e1']).toBe('Memory');  // person subject → durable memory
+    expect(byId['e3']).toBe('Memory');  // no subject → durable memory
+    expect(byId['p1']).toBe('Plan');
+    expect(byId['p2']).toBeUndefined(); // resolved intents are not live plans
   });
 
-  it('byConcept groups in stable order and drops empty concepts', () => {
+  it('bySource groups in stable order (Memory, Live, Plan) and drops empty sources', () => {
     const w = buildWhy('q', { self: ['sf1'], episodic: ['e2'], prospective: [] }, snap);
-    const groups = byConcept(w.used);
-    expect(groups.map(g => g.concept)).toEqual(['Preferences', 'Current context']);
+    const groups = bySource(w.used);
+    expect(groups.map(g => g.source)).toEqual(['Memory', 'Live']);
     expect(groups[0]!.items[0]!.id).toBe('sf1');
   });
 });

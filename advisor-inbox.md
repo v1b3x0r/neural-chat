@@ -41,3 +41,11 @@ Deferred (post-hackathon, non-blocking): proxy mid-stream 502 guard (`if (!res.h
 - [x] A18: ลด dashboard density, Linear-calm, DevTools-hidden (P2) → รับ, เข้ากับ restyle
 - [x] A19: ซ่อน raw (episodic/self/tail/injected prompt) ใต้ "Advanced/Inspector" (P2) → รับ
 หมายเหตุ: submission ปัจจุบัน COMPLETE + pushed อยู่แล้ว — งานรอบนี้เป็น enhancement บน baseline ปลอดภัย ตัดได้ถ้าเวลาไม่พอ. เหลือ ~13 ชม.ถึง deadline. รูปที่ founder แนบมาโหลดไม่ขึ้น (placeholder) — Claude ตอบจาก text ล้วน
+
+## 2026-07-20 (รอบ 4) | GPT | เรื่อง: context-composition reframe (จาก "memory store" → "context manager")
+- [x] A20: "USED MEMORIES" ไม่แม่น — retrieved items เป็น working context ผสมหลายแหล่ง (memory/live weather/self-state/convo) ไม่ใช่ long-term memory ล้วน → เปลี่ยนเป็น **"Used context"** (P1 accuracy, **verified ตรงกับ data model**: selfFacet/episodic-personal=Memory, subject=world|ambient=Live, prospective=Plan) → resolved: why.ts Concept→Source, debug.ts "Used context"
+- [x] A21: bottom = candidate context (plan/task/prospective) ไม่ใช่ memory → คง **"Available"** → resolved
+- [x] A22: count line "Selected 3 of 13 memories" ผิด → **"Selected N of M context items for this reply"** + "composes from memory/live/plans" → resolved: debug.ts lead
+- [x] A23: **source badges** 🟣Memory 🟢Live 🔵Plan (🟡Recent Chat) — โชว์ว่า engine ประกอบ context จากหลายแหล่ง = ก้าวจาก "ระบบเก็บความจำ" → "ระบบจัดการบริบท" (P1, killer framing) → resolved: sourceBadge + muted categorical dots (semantic, ไม่ใช่ decorative). NOTE: Recent Chat (tail) ยังไม่ surface — เพิ่มได้ถ้าต้องการ
+- [ ] A24: collapse long raw chunk → summary label + expand ("✓ Current weather" กด expand) กัน panel ยาว (P2 product-polish) → **partial**: ทำ truncate 58 + full text on hover (title). semantic-summary expand ยังไม่ทำ — future polish; hackathon-ok ตาม GPT
+หมายเหตุ: GPT บอก "อันนี้ใช้ได้สำหรับ hackathon แล้ว" — รอบนี้เป็น refinement เชิง conceptual ไม่ใช่ blocker. brain ปัจจุบันมี 0 Memory (ยังไม่ seed preference) เลยเห็นแค่ Live/Plan badge — seed coffee pref จะโชว์ 🟣 Memory
