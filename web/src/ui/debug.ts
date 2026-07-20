@@ -3,7 +3,8 @@ import { drawerWithGestures } from '@nature-labs/uicp-adapter-vanilla';
 import { getEngine, resetEngines } from '../lib/engine';
 import { getActivePersona, setActivePersona } from '../lib/personas';
 import { getLabToggles, setLabToggles, type LabToggles } from '../lib/config';
-import { getLastFed } from '../lib/labrespond';
+import { getLastFed, getLastWhy } from '../lib/labrespond';
+import { buildWhy, byConcept, type WhyItem } from '../lib/why';
 import { wipeWorld } from '../lib/ambient';
 import { el } from './dom';
 
@@ -13,6 +14,17 @@ function bar(v: number): HTMLElement { const d = el('div', { className: 'mem-bar
 function card(...kids: (Node | string)[]): HTMLElement { return el('div', { className: 'mem-card' }, kids); }
 function section(title: string, n: number, kids: Node[]): HTMLElement {
   return el('div', { className: 'drawer-section' }, [el('h3', { textContent: `${title} (${n})` }), ...kids]);
+}
+
+// L2: render a used/ignored memory list grouped under human concept headers.
+function whyList(items: WhyItem[], used: boolean): HTMLElement[] {
+  return byConcept(items).map(g => el('div', { className: 'why-group' }, [
+    el('div', { className: 'why-concept', textContent: g.concept }),
+    ...g.items.map(i => el('div', { className: `why-item ${used ? 'used' : 'ignored'}` }, [
+      el('span', { className: 'why-mark', textContent: used ? '✓' : '○' }),
+      el('span', { textContent: trunc(i.text, 84) }),
+    ])),
+  ]));
 }
 
 export function mountMemoryPane(host: HTMLElement): { open: () => void } {
@@ -25,12 +37,12 @@ export function mountMemoryPane(host: HTMLElement): { open: () => void } {
     const snap = await storage.load();
     host.replaceChildren();
 
-    // header + counts
-    const refresh = el('button', { className: 'drawer-row', textContent: '↻ refresh' });
+    // --- header + counts ---
+    const refresh = el('button', { className: 'drawer-row', textContent: '↻ Refresh' });
     refresh.addEventListener('click', () => void render());
-    const wipe = el('button', { className: 'drawer-row mem-wipe', textContent: '🧹 ล้างสมอง' });
+    const wipe = el('button', { className: 'drawer-row mem-wipe', textContent: '🧹 Wipe memory' });
     wipe.addEventListener('click', async () => {
-      if (!confirm(`ล้างความทรงจำของ ${persona.name} ทั้งหมด? (เริ่มใหม่จากศูนย์)`)) return;
+      if (!confirm(`Wipe all of ${persona.name}'s memory and start from zero?`)) return;
       await storage.save({ messages: [], episodic: [], selfFacets: [], prospective: [], lastTick: 0 });
       await wipeWorld(persona.id);
       resetEngines();
@@ -39,9 +51,32 @@ export function mountMemoryPane(host: HTMLElement): { open: () => void } {
     });
     host.append(el('div', { className: 'drawer-section' }, [
       el('h3', { textContent: `🧠 ${persona.name}` }),
-      el('div', { className: 'mem-stat', textContent: `messages ${snap.messages.length} · episodic ${snap.episodic.length} · self ${snap.selfFacets.length} · prospective ${snap.prospective.length} · lastTick ${snap.lastTick}` }),
+      el('div', { className: 'mem-stat', textContent: `${snap.messages.length} messages · ${snap.episodic.length} memories · ${snap.selfFacets.length} preferences · ${snap.prospective.filter(p => p.status === 'pending').length} plans` }),
       refresh, wipe,
     ]));
+
+    // --- L2: WHY THIS ANSWER (the product story — selection, not storage) ---
+    const why = await getLastWhy(persona.id);
+    const whyKids: Node[] = [];
+    if (!why) {
+      whyKids.push(el('div', { className: 'why-empty', textContent: 'Chat first — then this shows which memories shaped the reply, and which were left out.' }));
+    } else {
+      const v = buildWhy(why.query, why.used, snap);
+      whyKids.push(el('div', { className: 'why-query', textContent: `“${trunc(v.query, 90)}”` }));
+      whyKids.push(el('div', { className: 'why-lead', textContent: `Selected ${v.usedCount} of ${v.totalCount} memories for this answer. Only the relevant ones reach the model.` }));
+      whyKids.push(el('div', { className: 'why-head used', textContent: `Used (${v.usedCount})` }));
+      whyKids.push(...(v.used.length ? whyList(v.used, true) : [el('div', { className: 'why-none', textContent: 'nothing retrieved this turn' })]));
+      whyKids.push(el('div', { className: 'why-head ignored', textContent: `Available, not used (${v.ignored.length})` }));
+      whyKids.push(...(v.ignored.length ? whyList(v.ignored, false) : [el('div', { className: 'why-none', textContent: '—' })]));
+    }
+    host.append(el('div', { className: 'drawer-section why-section' }, [
+      el('h3', { textContent: '✨ Why this answer' }),
+      ...whyKids,
+    ]));
+
+    // --- L3: ADVANCED / INSPECTOR (raw tiers + tuning, collapsed by default) ---
+    const advanced = el('details', { className: 'advanced' });
+    advanced.append(el('summary', { textContent: 'Advanced · inspector' }));
 
     // Lab — control what we feed the LLM next turn, and see what was fed last turn.
     const t = getLabToggles();
@@ -52,27 +87,27 @@ export function mountMemoryPane(host: HTMLElement): { open: () => void } {
     };
     const posSel = el('select');
     posSel.append(
-      el('option', { value: 'top', textContent: 'time: บนสุด (passive)', selected: t.timePos === 'top' }),
-      el('option', { value: 'end', textContent: 'time: directive ท้าย', selected: t.timePos === 'end' }),
+      el('option', { value: 'top', textContent: 'time: top (passive)', selected: t.timePos === 'top' }),
+      el('option', { value: 'end', textContent: 'time: end directive', selected: t.timePos === 'end' }),
     );
     posSel.addEventListener('change', () => setLabToggles({ ...getLabToggles(), timePos: posSel.value as LabToggles['timePos'] }));
 
     const fed = await getLastFed(persona.id);
     const fedBox = el('pre', { className: 'mem-tap' });
     fedBox.textContent = fed
-      ? `system:\n${fed.system || '(ว่าง)'}\n\ninject:\n${fed.inject || '(ว่าง)'}\n\n(+ ${fed.tailCount} tail messages)`
-      : '(ยังไม่มี turn — คุยก่อน)';
+      ? `system:\n${fed.system || '(empty)'}\n\ninject:\n${fed.inject || '(empty)'}\n\n(+ ${fed.tailCount} tail messages)`
+      : '(no turn yet — chat first)';
 
-    host.append(el('div', { className: 'drawer-section' }, [
-      el('h3', { textContent: '🔬 Lab — feed เข้า LLM (มีผล turn ถัดไป)' }),
-      toggle('selfState', '🪞 self-state (รู้ตัวเอง)'),
+    advanced.append(el('div', { className: 'drawer-section' }, [
+      el('h3', { textContent: '🔬 Lab — feed to the model (affects next turn)' }),
+      toggle('selfState', '🪞 self-state (knows itself)'),
       toggle('time', '⏱ time'), posSel,
-      toggle('self', '🧬 self'), toggle('episodic', '📎 episodic'), toggle('prospective', '🎯 prospective'), toggle('tail', '💬 tail (ข้อความล่าสุด)'),
-      el('div', { className: 'drawer-label', textContent: '📤 last fed (turn ล่าสุด)' }), fedBox,
+      toggle('self', '🧬 self'), toggle('episodic', '📎 episodic'), toggle('prospective', '🎯 prospective'), toggle('tail', '💬 tail (recent messages)'),
+      el('div', { className: 'drawer-label', textContent: '📤 last fed (this turn)' }), fedBox,
     ]));
 
     // self-facets (the "who am I" tier)
-    host.append(section('Self', snap.selfFacets.length, snap.selfFacets
+    advanced.append(section('Self', snap.selfFacets.length, snap.selfFacets
       .slice().sort((a, b) => b.strength - a.strength)
       .map(f => card(
         el('div', { textContent: `[${f.kind}] ${f.statement}` }),
@@ -80,7 +115,7 @@ export function mountMemoryPane(host: HTMLElement): { open: () => void } {
       ))));
 
     // episodic, strongest first
-    host.append(section('Episodic', snap.episodic.length, snap.episodic
+    advanced.append(section('Episodic', snap.episodic.length, snap.episodic
       .slice().sort((a, b) => b.strength - a.strength)
       .map(m => card(
         el('div', { textContent: trunc(m.content) }),
@@ -89,13 +124,11 @@ export function mountMemoryPane(host: HTMLElement): { open: () => void } {
       ))));
 
     // prospective — pending shown live (strength + dormant/triggered); archive collapsed to a count.
-    // Legacy rows persisted before the resolution feature lack strength/lastTriggeredAt until a tick
-    // normalizes them; coalesce so opening the pane on old data never throws (str defaults to priority/5).
     const strengthOf = (p: { strength: number; priority: number }) => (typeof p.strength === 'number' ? p.strength : p.priority / 5);
     const pend = snap.prospective.filter(p => p.status === 'pending').sort((a, b) => strengthOf(b) - strengthOf(a));
     const resolved = snap.prospective.filter(p => p.status === 'resolved').length;
     const abandoned = snap.prospective.filter(p => p.status === 'abandoned').length;
-    host.append(section('Prospective · pending', pend.length, [
+    advanced.append(section('Prospective · pending', pend.length, [
       ...pend.map(p => card(
         el('div', { textContent: p.intent }),
         el('div', { className: 'mem-stat', textContent: `str ${strengthOf(p).toFixed(2)} · prio ${p.priority} · ${(typeof p.lastTriggeredAt === 'number' && p.lastTriggeredAt >= 0) ? 'triggered' : 'dormant'} · clue: ${p.contextClue || '—'}` }),
@@ -105,21 +138,23 @@ export function mountMemoryPane(host: HTMLElement): { open: () => void } {
     ]));
 
     // injection tap — show the EXACT string the LLM receives for a query
-    const tapInput = el('input', { type: 'text', placeholder: 'พิมพ์ query แล้วดู injection จริง...' });
-    const tapOut = el('pre', { className: 'mem-tap', textContent: '(ผลลัพธ์ formatInjection จะขึ้นที่นี่)' });
-    const tapBtn = el('button', { className: 'drawer-row', textContent: '🔬 retrieve + ดู injection' });
+    const tapInput = el('input', { type: 'text', placeholder: 'Type a query to see the real injection…' });
+    const tapOut = el('pre', { className: 'mem-tap', textContent: '(formatInjection output appears here)' });
+    const tapBtn = el('button', { className: 'drawer-row', textContent: '🔬 Retrieve + view injection' });
     tapBtn.addEventListener('click', async () => {
       const q = tapInput.value.trim();
       if (!q) return;
       tapOut.textContent = '…';
       const ctx = await engine.retrieve(q);                 // NOTE: mild side-effect (bumps lastRecalledAt) — faithful to real retrieval
-      tapOut.textContent = formatInjection(ctx) || '(ว่าง — ไม่มี memory ผ่าน threshold)';
+      tapOut.textContent = formatInjection(ctx) || '(empty — no memory passed the threshold)';
     });
-    host.append(el('div', { className: 'drawer-section' }, [
+    advanced.append(el('div', { className: 'drawer-section' }, [
       el('h3', { textContent: '🔬 Injection Tap' }),
-      el('div', { className: 'mem-stat', textContent: 'เรียก engine.retrieve(query) จริง → formatInjection (มี side-effect เบาๆ: อัป lastRecalledAt)' }),
+      el('div', { className: 'mem-stat', textContent: 'Calls the real engine.retrieve(query) → formatInjection (mild side-effect: updates lastRecalledAt)' }),
       tapInput, tapBtn, tapOut,
     ]));
+
+    host.append(advanced);
   }
 
   return { open: () => { void render(); sheet.open(); } };

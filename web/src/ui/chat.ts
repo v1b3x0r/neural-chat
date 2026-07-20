@@ -9,10 +9,10 @@ export function mountChat(root: HTMLElement, openDrawer: () => void, openMemory:
   root.innerHTML = `
     <header class="topbar"><button id="menu" class="icon" aria-label="menu">☰</button><span class="title"></span><button id="mem" class="icon" aria-label="memory">🧠</button></header>
     <main id="thread" class="thread"></main>
-    <div id="banner" class="banner" hidden>ต้องใส่ API key ก่อน — แตะเพื่อตั้งค่า</div>
+    <div id="banner" class="banner" hidden>API key required. Tap to set up.</div>
     <div id="phase" class="phase" hidden></div>
     <form id="composer" class="composer">
-      <textarea id="input" rows="1" placeholder="พิมพ์หาเชียงใหม่..."></textarea>
+      <textarea id="input" rows="1" placeholder="Message เชียงใหม่…"></textarea>
       <button id="send" class="send" type="submit" aria-label="send">↑</button>
     </form>`;
 
@@ -42,7 +42,7 @@ export function mountChat(root: HTMLElement, openDrawer: () => void, openMemory:
     const snap = await storage.load();
     thread.replaceChildren();
     if (!snap.messages.length) {
-      const e = document.createElement('div'); e.className = 'empty'; e.textContent = 'คุยอะไรดี';
+      const e = document.createElement('div'); e.className = 'empty'; e.textContent = 'Say hello';
       thread.appendChild(e);
     } else for (const m of snap.messages) bubble(m.role, m.text);
   }
@@ -68,7 +68,7 @@ export function mountChat(root: HTMLElement, openDrawer: () => void, openMemory:
     const reply = bubble('model', '');
     try {
       // labRespond mirrors engine.respond() but feeds the LLM per the lab toggles (tunable from the 🧠 pane)
-      const PHASE_TEXT: Record<TurnPhase, string> = { recall: '🔍 กำลังนึกความจำ…', stream: '', consolidate: '🧠 กำลังตกตะกอนความจำ…', idle: '' };
+      const PHASE_TEXT: Record<TurnPhase, string> = { recall: '🔍 recalling…', stream: '', consolidate: '🧠 consolidating memory…', idle: '' };
       const onPhase = (p: TurnPhase) => { if (!stillHere()) return; phase.textContent = PHASE_TEXT[p]; phase.hidden = !PHASE_TEXT[p]; };
       for await (const chunk of labRespond(engine, chatPort, persona.id, persona.systemPrompt ?? '', text, onPhase)) { if (stillHere()) { reply.textContent += chunk; thread.scrollTop = thread.scrollHeight; } }
       if (stillHere()) await paint(storage);             // resync ids/ts; skip if user switched persona mid-stream

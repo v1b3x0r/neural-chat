@@ -9,6 +9,13 @@ export interface LastFed { system: string; inject: string; tailCount: number; at
 const lastFedKey = (ns: string) => `lastfed:${ns}`;
 export const getLastFed = (ns: string): Promise<LastFed | undefined> => getRaw<LastFed>(lastFedKey(ns));
 
+// L2 explainability: the memory ids the retrieve step actually fed the model last turn (honoring the lab
+// toggles, so it reflects what was truly injected). The debug pane diffs this against the full snapshot
+// to show "used vs available-but-ignored" — the engine's SELECTION, made visible.
+export interface LastWhy { query: string; at: number; used: { self: string[]; episodic: string[]; prospective: string[] } }
+const lastWhyKey = (ns: string) => `lastwhy:${ns}`;
+export const getLastWhy = (ns: string): Promise<LastWhy | undefined> => getRaw<LastWhy>(lastWhyKey(ns));
+
 const timeNoteTop = (now: number) => `[Current time: ${new Date(now).toString()}]`;
 const timeDirective = (now: number) => `[It is now ${new Date(now).toString()}. Answer with this exact current time/date in mind — do not guess or assume otherwise.]`;
 
@@ -43,6 +50,11 @@ export async function* labRespond(engine: MemoryEngine, chatPort: ChatPort, ns: 
   const selfStateBlock = t.selfState ? formatSelfState(await gatherSelfState(ns)) : '';
   const { inject, tail } = assembleInject(ctx, t, now, selfStateBlock);
   await setRaw(lastFedKey(ns), { system: systemPrompt, inject, tailCount: tail.length, at: now } satisfies LastFed);
+  await setRaw(lastWhyKey(ns), { query: text, at: now, used: {
+    self: t.self ? ctx.selfTier.map(f => f.id) : [],
+    episodic: t.episodic ? ctx.episodic.map(m => m.id) : [],
+    prospective: t.prospective ? ctx.prospective.map(p => p.id) : [],
+  } } satisfies LastWhy);
   devlog('last-fed', { ns, user: text, system: systemPrompt, inject, tail: tail.map(m => ({ role: m.role, text: m.text })) });
   let full = '';
   onPhase?.('stream');

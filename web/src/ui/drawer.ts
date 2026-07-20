@@ -29,25 +29,25 @@ export function mountDrawer(host: HTMLElement): { open: () => void } {
     host.replaceChildren();
 
     // --- personas ---
-    const friends = el('div', { className: 'drawer-section' }, [el('h3', { textContent: 'เพื่อน' })]);
+    const friends = el('div', { className: 'drawer-section' }, [el('h3', { textContent: 'Personas' })]);
     for (const p of listPersonas()) {
       const b = el('button', { className: 'drawer-row' + (p.id === active.id ? ' active' : ''), textContent: p.name });
       b.addEventListener('click', () => { setActivePersona(p.id); sheet.close(); void render(); });
       friends.append(b);
     }
     if (!adding) {
-      const add = el('button', { className: 'drawer-row', textContent: '+ เพื่อนใหม่' });
+      const add = el('button', { className: 'drawer-row', textContent: '+ New persona' });
       add.addEventListener('click', () => { adding = true; void render(); });
       friends.append(add);
     } else {
-      const nameIn = el('input', { type: 'text', placeholder: 'ชื่อ (เช่น นักพฤกษาศาสตร์)' });
-      const promptIn = el('textarea', { placeholder: 'system prompt ที่ค้ำตัวตน (เว้นว่าง = ปล่อย emerge เอง)', rows: 4 });
-      const create = el('button', { className: 'drawer-row', textContent: 'สร้าง' });
+      const nameIn = el('input', { type: 'text', placeholder: 'Name (e.g. Botanist)' });
+      const promptIn = el('textarea', { placeholder: 'System prompt to anchor identity (blank = let it emerge)', rows: 4 });
+      const create = el('button', { className: 'drawer-row', textContent: 'Create' });
       create.addEventListener('click', () => {
         const name = nameIn.value.trim(); if (!name) return;
         const np = addPersona(name, promptIn.value); adding = false; setActivePersona(np.id); sheet.close(); void render();
       });
-      const cancel = el('button', { className: 'drawer-row', textContent: 'ยกเลิก' });
+      const cancel = el('button', { className: 'drawer-row', textContent: 'Cancel' });
       cancel.addEventListener('click', () => { adding = false; void render(); });
       friends.append(nameIn, promptIn, create, cancel);
     }
@@ -70,7 +70,7 @@ export function mountDrawer(host: HTMLElement): { open: () => void } {
     embedSel.addEventListener('change', () => { setEmbedModel(embedSel.value, profile.id); resetEngines(); });
 
     host.append(el('div', { className: 'drawer-section' }, [
-      el('h3', { textContent: 'โมเดล' }),
+      el('h3', { textContent: 'Model' }),
       profileSel, keyInput,
       el('label', { className: 'drawer-label', textContent: 'chat' }), chatSel,
       el('label', { className: 'drawer-label', textContent: 'embed' }), embedSel,

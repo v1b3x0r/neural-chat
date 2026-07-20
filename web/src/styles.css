@@ -85,3 +85,31 @@ body { margin:0; font-family:system-ui,-apple-system,sans-serif; color:var(--tex
 .mem-toggle input { margin-right:7px; }
 .mem-wipe { color:#b23b2a; }
 #drawer textarea, #mem-drawer textarea { width:100%; padding:11px; border-radius:var(--r-field); border:1px solid var(--border); background:var(--bg); color:var(--text); font:inherit; margin-top:6px; resize:vertical; }
+
+/* L2 — "Why this answer" (the product story: selection, not storage) */
+.why-section h3 { font-size:14px; color:var(--text); }
+.why-query { font-family:var(--serif); font-style:italic; color:var(--subtext); margin:2px 0 9px; font-size:14px; line-height:1.4; }
+.why-lead { font-size:13px; color:var(--text); background:var(--bg); border:1px solid var(--border);
+  border-radius:var(--r-field); padding:9px 12px; margin-bottom:14px; line-height:1.5; }
+.why-head { font-size:11px; text-transform:uppercase; letter-spacing:.07em; margin:12px 0 5px; }
+.why-head.used { color:var(--accent); }
+.why-head.ignored { color:var(--subtext); }
+.why-group { margin-bottom:7px; }
+.why-concept { font-size:11px; color:var(--subtext); margin:7px 0 3px; }
+.why-item { display:flex; gap:8px; align-items:baseline; font-size:13px; line-height:1.45; padding:2px 0; }
+.why-item .why-mark { flex:none; width:13px; font-size:12px; text-align:center; }
+.why-item.used { color:var(--text); }
+.why-item.used .why-mark { color:var(--accent); }
+.why-item.ignored { color:var(--subtext); }
+.why-item.ignored .why-mark { color:var(--border); }
+.why-none, .why-empty { font-size:13px; color:var(--subtext); font-style:italic; line-height:1.5; }
+
+/* L3 — Advanced / inspector, collapsed by default */
+details.advanced { margin-top:18px; border-top:1px solid var(--border); }
+details.advanced > summary { cursor:pointer; list-style:none; font-size:12px; text-transform:uppercase;
+  letter-spacing:.07em; color:var(--subtext); padding:12px 0 8px; user-select:none; transition:color .18s; }
+details.advanced > summary:hover { color:var(--text); }
+details.advanced > summary::-webkit-details-marker { display:none; }
+details.advanced > summary::before { content:'▸  '; }
+details.advanced[open] > summary::before { content:'▾  '; }
+details.advanced[open] > summary { color:var(--text); }
