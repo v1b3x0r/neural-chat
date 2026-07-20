@@ -3,11 +3,12 @@
 // fetch), so it runs on a tiny box with no npm install. Run: QWEN_API_KEY=... node server.mjs
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
-import { join, extname, normalize } from 'node:path';
+import { join, extname, normalize, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Readable } from 'node:stream';
 
 const DIST = fileURLToPath(new URL('./dist', import.meta.url));
+const DIST_PREFIX = DIST.endsWith(sep) ? DIST : DIST + sep; // trailing sep so a sibling like dist-secret/ can't match the prefix
 const PORT = Number(process.env.PORT) || 80;
 const KEY = process.env.QWEN_API_KEY || '';
 const UPSTREAM = process.env.QWEN_BASE_URL || 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1';
@@ -39,7 +40,7 @@ async function serveStatic(req, res) {
   let urlPath = decodeURIComponent((req.url || '/').split('?')[0]);
   if (urlPath === '/') urlPath = '/index.html';
   const filePath = normalize(join(DIST, urlPath));
-  if (!filePath.startsWith(DIST)) { res.statusCode = 403; return res.end('forbidden'); }
+  if (filePath !== DIST && !filePath.startsWith(DIST_PREFIX)) { res.statusCode = 403; return res.end('forbidden'); }
   try {
     const s = await stat(filePath);
     if (s.isDirectory()) throw new Error('is dir');
