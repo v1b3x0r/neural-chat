@@ -24,3 +24,11 @@
 - Founder เคาะเพิ่มเอง: **เลื่อน Vercel/deploy ไปตัดสินใจหลังของ core เสร็จ** — live demo URL กลายเป็น optional
 
 หมายเหตุ: smoke test key จริงผ่านครบ 3 endpoints (models/chat/embeddings 768) เวลา ~14:00 — DashScope intl รับ key `sk-ws-…` ของ Qwen Cloud ตรงๆ
+
+## สรุปปิดรอบ (2026-07-20 ~15:10) — A9–A13 ทำครบ
+ทุกข้อ resolved แล้ว. Final whole-branch review (opus) = code READY + honest. เหลือ **founder action** ก่อน Submit (ไม่ใช่ advisor item ค้าง):
+- อัดวิดีโอ (script + .srt พร้อมใน docs/superpowers/hackathon/)
+- วาง Qwen Cloud console screenshots ลง docs/superpowers/hackathon/evidence/ (README ในโฟลเดอร์ลิสต์ให้)
+- paste devpost-draft.md ลง Devpost แล้ว Submit
+- ถ้า KYC ยัง pending: คงประโยค pending note ใน Devpost draft ไว้
+Deferred (post-hackathon, non-blocking): proxy mid-stream 502 guard (`if (!res.headersSent)` ใน vite.config.ts).
