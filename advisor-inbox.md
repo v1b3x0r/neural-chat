@@ -57,8 +57,10 @@ Deferred (post-hackathon, non-blocking): proxy mid-stream 502 guard (`if (!res.h
 - GPT identity framing (not an action): Squish + Memory Engine = 'pre-inference engines' (selection before the model thinks) — เก็บไว้ใช้ในเรื่องเล่า/write-up
 
 ## 2026-07-20 (รอบ 6) | GPT | เรื่อง: final UI polish — visualize BOUNDED working context (Context Composition Engine)
-- [ ] A28: Reframe = **Context Composition Engine**; output ที่สำคัญคือ **Working Context** ไม่ใช่ Memory (P1 framing, **verified: ตรงกับ retrieve+tail bounded design**) → รับ: pane header "Why this answer" → **"Working context — what the model receives"**
-- [ ] A29: **Visualize bounded context** = property ที่ยังมองไม่เห็น: บทสนทนาโต (N tokens) แต่ working context คงที่ (M tokens) → bar เทียบ Conversation vs Working (P1, **the missing aha**). ทำได้ web-only: convo = est(snap.messages), working = est(system+inject+tail). Honest caveat: working = retrieved memories + short tail cap (ไม่ใช่ 0 conversation) — bounded เพราะ top-K + tail cap
-- [ ] A30: **หลีกเลี่ยง** "run for months on free credits" (pricing-dependent) → พูดเรื่อง engine เอง: "working context stays bounded as conversation grows" / "context growth sub-linear" (P1 honesty) → รับ
-- [ ] A31: อย่าเรียก debug panel → product feature naming (Working Context / Context Composition / What the model receives) (P2) → รับ
+- [x] A28: Reframe = **Context Composition Engine**; output ที่สำคัญคือ **Working Context** ไม่ใช่ Memory (P1 framing, **verified: ตรงกับ retrieve+tail bounded design**) → รับ: pane header "Why this answer" → **"Working context — what the model receives"**
+- [x] A29: **Visualize bounded context** = property ที่ยังมองไม่เห็น: บทสนทนาโต (N tokens) แต่ working context คงที่ (M tokens) → bar เทียบ Conversation vs Working (P1, **the missing aha**). ทำได้ web-only: convo = est(snap.messages), working = est(system+inject+tail). Honest caveat: working = retrieved memories + short tail cap (ไม่ใช่ 0 conversation) — bounded เพราะ top-K + tail cap
+- [x] A30: **หลีกเลี่ยง** "run for months on free credits" (pricing-dependent) → พูดเรื่อง engine เอง: "working context stays bounded as conversation grows" / "context growth sub-linear" (P1 honesty) → รับ
+- [x] A31: อย่าเรียก debug panel → product feature naming (Working Context / Context Composition / What the model receives) (P2) → รับ
 - Demo flow ใหม่: long convo → 1 more Q → inspector โชว์ working context เล็ก → Qwen ตอบถูก → "model ไม่ได้เห็นทั้งบทสนทนา?!" → คือ engine
+
+หมายเหตุ A29: bounded 'aha' จะเห็นชัดเมื่อบทสนทนายาว (working ~bounded, conversation โต). บนแชตสั้น working อาจ ≈/มากกว่า conversation — copy เลยพูดเรื่อง 'bounded/not proportional' ไม่ใช่ 'N of M reduction' (honest ทุกความยาว). ตัว aha ในวิดีโอส่งผ่านฉาก eval (23 vs 428 = bounded example จริง) → resolved: why.ts+debug.ts+video eval beat (commit e672ca5)
