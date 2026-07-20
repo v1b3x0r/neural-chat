@@ -90,14 +90,14 @@ body { margin:0; font-family:system-ui,-apple-system,sans-serif; color:var(--tex
 .why-section h3 { font-size:14px; color:var(--text); }
 .why-query { font-family:var(--serif); font-style:italic; color:var(--subtext); margin:2px 0 9px; font-size:14px; line-height:1.4; }
 .why-lead { font-size:13px; color:var(--text); background:var(--bg); border:1px solid var(--border);
-  border-radius:var(--r-field); padding:9px 12px; margin-bottom:14px; line-height:1.5; }
-.why-head { font-size:11px; text-transform:uppercase; letter-spacing:.07em; margin:12px 0 5px; }
+  border-radius:var(--r-field); padding:11px 14px; margin-bottom:20px; line-height:1.55; }
+.why-head { font-size:11px; text-transform:uppercase; letter-spacing:.07em; margin:20px 0 8px; }
 .why-head.used { color:var(--accent); }
 .why-head.ignored { color:var(--subtext); }
-.why-group { margin-bottom:7px; }
-.why-concept { font-size:11px; color:var(--subtext); margin:7px 0 3px; }
-.why-item { display:flex; gap:8px; align-items:baseline; font-size:13px; line-height:1.45; padding:2px 0; }
-.why-item .why-mark { flex:none; width:13px; font-size:12px; text-align:center; }
+.why-group { margin-bottom:14px; }
+.why-concept { font-size:11px; color:var(--subtext); margin:11px 0 6px; }
+.why-item { display:flex; gap:11px; align-items:flex-start; font-size:13px; line-height:1.5; padding:5px 0; }
+.why-item .why-mark { flex:none; width:15px; font-size:12px; line-height:1.5; text-align:center; }
 .why-item.used { color:var(--text); }
 .why-item.used .why-mark { color:var(--accent); }
 .why-item.ignored { color:var(--subtext); }
@@ -113,3 +113,18 @@ details.advanced > summary::-webkit-details-marker { display:none; }
 details.advanced > summary::before { content:'▸  '; }
 details.advanced[open] > summary::before { content:'▾  '; }
 details.advanced[open] > summary { color:var(--text); }
+
+/* Pane action buttons — real button affordance (chips), not full-width text rows */
+.pane-head { margin-bottom:22px; }
+.pane-head .mem-stat { margin-bottom:14px; }
+.pane-actions { display:flex; flex-wrap:wrap; gap:8px; }
+.pane-btn { flex:none; display:inline-flex; align-items:center; gap:6px; padding:8px 14px;
+  border:1px solid var(--border); border-radius:var(--r-field); background:var(--bg); color:var(--text);
+  font:inherit; font-size:13px; line-height:1; cursor:pointer;
+  transition:background .18s, border-color .18s, transform .1s; }
+.pane-btn:hover { background:var(--surface); border-color:var(--subtext); }
+.pane-btn:active { transform:scale(.97); }
+.pane-btn.danger { color:#b23b2a; }
+.pane-btn.danger:hover { border-color:#b23b2a; background:color-mix(in srgb, #b23b2a 8%, var(--bg)); }
+/* the retrieve button in Advanced sits above its output */
+.advanced .pane-btn { margin-top:8px; }

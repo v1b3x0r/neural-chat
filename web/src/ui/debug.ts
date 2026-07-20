@@ -38,9 +38,9 @@ export function mountMemoryPane(host: HTMLElement): { open: () => void } {
     host.replaceChildren();
 
     // --- header + counts ---
-    const refresh = el('button', { className: 'drawer-row', textContent: '↻ Refresh' });
+    const refresh = el('button', { className: 'pane-btn', textContent: '↻ Refresh' });
     refresh.addEventListener('click', () => void render());
-    const wipe = el('button', { className: 'drawer-row mem-wipe', textContent: '🧹 Wipe memory' });
+    const wipe = el('button', { className: 'pane-btn danger', textContent: '🧹 Wipe memory' });
     wipe.addEventListener('click', async () => {
       if (!confirm(`Wipe all of ${persona.name}'s memory and start from zero?`)) return;
       await storage.save({ messages: [], episodic: [], selfFacets: [], prospective: [], lastTick: 0 });
@@ -49,10 +49,10 @@ export function mountMemoryPane(host: HTMLElement): { open: () => void } {
       setActivePersona(persona.id); // re-fire listeners → chat re-renders empty + ambient re-arms
       void render();
     });
-    host.append(el('div', { className: 'drawer-section' }, [
+    host.append(el('div', { className: 'drawer-section pane-head' }, [
       el('h3', { textContent: `🧠 ${persona.name}` }),
       el('div', { className: 'mem-stat', textContent: `${snap.messages.length} messages · ${snap.episodic.length} memories · ${snap.selfFacets.length} preferences · ${snap.prospective.filter(p => p.status === 'pending').length} plans` }),
-      refresh, wipe,
+      el('div', { className: 'pane-actions' }, [refresh, wipe]),
     ]));
 
     // --- L2: WHY THIS ANSWER (the product story — selection, not storage) ---
@@ -140,7 +140,7 @@ export function mountMemoryPane(host: HTMLElement): { open: () => void } {
     // injection tap — show the EXACT string the LLM receives for a query
     const tapInput = el('input', { type: 'text', placeholder: 'Type a query to see the real injection…' });
     const tapOut = el('pre', { className: 'mem-tap', textContent: '(formatInjection output appears here)' });
-    const tapBtn = el('button', { className: 'drawer-row', textContent: '🔬 Retrieve + view injection' });
+    const tapBtn = el('button', { className: 'pane-btn', textContent: '🔬 Retrieve + view injection' });
     tapBtn.addEventListener('click', async () => {
       const q = tapInput.value.trim();
       if (!q) return;
