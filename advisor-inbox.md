@@ -49,3 +49,9 @@ Deferred (post-hackathon, non-blocking): proxy mid-stream 502 guard (`if (!res.h
 - [x] A23: **source badges** 🟣Memory 🟢Live 🔵Plan (🟡Recent Chat) — โชว์ว่า engine ประกอบ context จากหลายแหล่ง = ก้าวจาก "ระบบเก็บความจำ" → "ระบบจัดการบริบท" (P1, killer framing) → resolved: sourceBadge + muted categorical dots (semantic, ไม่ใช่ decorative). NOTE: Recent Chat (tail) ยังไม่ surface — เพิ่มได้ถ้าต้องการ
 - [ ] A24: collapse long raw chunk → summary label + expand ("✓ Current weather" กด expand) กัน panel ยาว (P2 product-polish) → **partial**: ทำ truncate 58 + full text on hover (title). semantic-summary expand ยังไม่ทำ — future polish; hackathon-ok ตาม GPT
 หมายเหตุ: GPT บอก "อันนี้ใช้ได้สำหรับ hackathon แล้ว" — รอบนี้เป็น refinement เชิง conceptual ไม่ใช่ blocker. brain ปัจจุบันมี 0 Memory (ยังไม่ seed preference) เลยเห็นแค่ Live/Plan badge — seed coffee pref จะโชว์ 🟣 Memory
+
+## 2026-07-20 (รอบ 5) | GPT + founder | เรื่อง: ship it — deploy to Alibaba Cloud
+- [x] A25: copy polish 'before the model generated this reply' (states pre-inference architecture) → resolved: debug.ts why-lead
+- [x] A26: DEPLOY to Alibaba Cloud (GPT: Node→reverse-proxy→HTTPS) → resolved: LIVE at https://cm.viibe.to on Alibaba SAS (systemd+nginx+CF TLS). **นี่ปิด A9 deployment-proof แบบสมบูรณ์** — backend รันบน Alibaba Cloud จริง verified external
+- [x] A27: no new engine features (decay/graph/confidence = v2) → agreed, ไม่แตะ engine
+- GPT identity framing (not an action): Squish + Memory Engine = 'pre-inference engines' (selection before the model thinks) — เก็บไว้ใช้ในเรื่องเล่า/write-up
