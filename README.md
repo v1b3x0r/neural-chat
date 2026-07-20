@@ -59,7 +59,7 @@ This offline harness uses that deterministic **lexical** fake-embedder, so each 
 
 ## Alibaba Cloud deployment proof
 
-**Live, deployed and running on Alibaba Cloud.** The app (static build + the Qwen proxy) runs as a systemd Node service behind nginx on an Alibaba Cloud server — reachable now at **http://47.79.255.217** (HTTPS at `https://cm.viibe.to` once DNS + Let's Encrypt land). All chat and embedding inference runs on **Qwen Cloud / Alibaba Cloud Model Studio** (`https://dashscope-intl.aliyuncs.com/compatible-mode/v1`). So both tiers are on Alibaba Cloud: the backend host *and* the model inference.
+**Live, deployed and running on Alibaba Cloud.** The app (static build + the Qwen proxy) runs as a systemd Node service behind nginx on an Alibaba Cloud Simple Application Server — live at **https://cm.viibe.to** (also `http://47.79.255.217`). All chat and embedding inference runs on **Qwen Cloud / Alibaba Cloud Model Studio** (`https://dashscope-intl.aliyuncs.com/compatible-mode/v1`). So both tiers are on Alibaba Cloud: the backend host *and* the model inference.
 
 The browser never holds the API key — it talks to a same-origin proxy that injects the key server-side and enforces a path/model allowlist and a `max_tokens` cap before forwarding upstream:
 
@@ -113,9 +113,9 @@ The 🧠 pane is a tuning instrument: a live view of the entity's memory (episod
 
 ## Hackathon note
 
-Submitted to the **MemoryAgent** track. This repo (`neural-chat` — the app is titled "Living Memory Engine" for submission) was significantly updated after May 26, 2026:
+Submitted to the **MemoryAgent** track. This repo was significantly updated after May 26, 2026:
 
-- **2026-06-02 → 06-05** — the web pivot (`web/` — Vite + vanilla TS, replacing the frozen Expo app), the ambient world-sensing oracle (`lib/ambient.ts`), interoceptive self-state grounding (`lib/selfstate.ts`), prospective-memory resolution, and Spec 1A attributed multi-person memory (source/subject/interaction ledger — PR [#2](https://github.com/v1b3x0r/neural-chat/pull/2)).
+- **2026-06-02 → 06-05** — the web pivot (`web/` — Vite + vanilla TS, replacing the frozen Expo app), the ambient world-sensing oracle (`lib/ambient.ts`), interoceptive self-state grounding (`lib/selfstate.ts`), prospective-memory resolution, and Spec 1A attributed multi-person memory (source/subject/interaction ledger — PR [#2](https://github.com/v1b3x0r/living-memory-engine/pull/2)).
 - **2026-07-20** — Qwen Cloud integration (key-safe proxy, `qwen3.7-plus` + `text-embedding-v4`), the deterministic H1–H4 evaluation harness, the memory-lifecycle chip, and a restyle pass.
 
 Test suites: engine 92 passing, web 71 passing.

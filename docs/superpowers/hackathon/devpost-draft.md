@@ -1,6 +1,6 @@
 # Living Memory Engine — Devpost submission draft
 
-> Paste into the Devpost fields. Track: **MemoryAgent**. Repo: https://github.com/v1b3x0r/neural-chat (Apache-2.0).
+> Paste into the Devpost fields. Track: **MemoryAgent**. Repo: https://github.com/v1b3x0r/living-memory-engine (Apache-2.0).
 
 ## Elevator pitch (one line)
 
@@ -28,7 +28,7 @@ A memory-lifecycle chip surfaces the otherwise-invisible mechanics live (🔍 re
 
 - **Ports & adapters.** The engine (`@nature-labs/living-memory-engine`) contains no IO or framework code — it takes a `StoragePort`, `ChatPort`, `EmbedPort` plus clock/random/policy. A new frontend just supplies adapters, which is exactly how the web app exists with **zero engine edits**.
 - **Qwen Cloud, key-safe.** The "Qwen Cloud" profile reaches Qwen through a same-origin proxy so the API key never touches the browser: `browser → /api/qwen/v1 → server-side key injection → Alibaba Cloud Model Studio (DashScope intl)`. The proxy enforces a path allowlist, a model allowlist, a `max_tokens` cap, and forces `dimensions: 768` on embeddings so the engine's vector space is unchanged. Chat: `qwen3.7-plus`. Embeddings: `text-embedding-v4` (768-dim).
-  - Proof files: [`web/src/lib/qwenproxy.ts`](https://github.com/v1b3x0r/neural-chat/blob/main/web/src/lib/qwenproxy.ts), [`web/vite.config.ts`](https://github.com/v1b3x0r/neural-chat/blob/main/web/vite.config.ts), [`web/src/lib/config.ts`](https://github.com/v1b3x0r/neural-chat/blob/main/web/src/lib/config.ts).
+  - Proof files: [`web/src/lib/qwenproxy.ts`](https://github.com/v1b3x0r/living-memory-engine/blob/main/web/src/lib/qwenproxy.ts), [`web/vite.config.ts`](https://github.com/v1b3x0r/living-memory-engine/blob/main/web/vite.config.ts), [`web/src/lib/config.ts`](https://github.com/v1b3x0r/living-memory-engine/blob/main/web/src/lib/config.ts).
 - **Local-first storage.** IndexedDB per-persona snapshots; personas are namespaces, each with its own engine instance, memory store, and ambient worldlog.
 - **Tested.** 92 engine tests + 71 web tests (163 total), TypeScript strict, 0 type errors.
 
@@ -47,7 +47,7 @@ A deterministic script (`engine/eval/run.ts`, reproduce with `cd engine && npm r
 
 ## Alibaba Cloud deployment
 
-**Deployed and running on Alibaba Cloud.** The app is live on an Alibaba Cloud Simple Application Server — a zero-dependency Node service ([`web/server.mjs`](https://github.com/v1b3x0r/neural-chat/blob/main/web/server.mjs)) that serves the static build and proxies to Qwen, running under systemd behind nginx. Try it live at **https://cm.viibe.to** (also `http://47.79.255.217`). All chat and embedding inference runs on **Qwen Cloud / Alibaba Cloud Model Studio** (`dashscope-intl.aliyuncs.com/compatible-mode/v1`), verified end-to-end through the deployed server (model listing, streamed chat, 768-dim embeddings). So both the backend host and the model inference are on Alibaba Cloud. A live-deploy screenshot is in [`docs/superpowers/hackathon/evidence/`](https://github.com/v1b3x0r/neural-chat/tree/main/docs/superpowers/hackathon/evidence).
+**Deployed and running on Alibaba Cloud.** The app is live on an Alibaba Cloud Simple Application Server — a zero-dependency Node service ([`web/server.mjs`](https://github.com/v1b3x0r/living-memory-engine/blob/main/web/server.mjs)) that serves the static build and proxies to Qwen, running under systemd behind nginx. Try it live at **https://cm.viibe.to** (also `http://47.79.255.217`). All chat and embedding inference runs on **Qwen Cloud / Alibaba Cloud Model Studio** (`dashscope-intl.aliyuncs.com/compatible-mode/v1`), verified end-to-end through the deployed server (model listing, streamed chat, 768-dim embeddings). So both the backend host and the model inference are on Alibaba Cloud. A live-deploy screenshot is in [`docs/superpowers/hackathon/evidence/`](https://github.com/v1b3x0r/living-memory-engine/tree/main/docs/superpowers/hackathon/evidence).
 
 ## Significantly updated since the submission period opened (May 26, 2026)
 
