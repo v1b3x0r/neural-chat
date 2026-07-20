@@ -1,6 +1,12 @@
 # Living Memory Engine — Devpost submission draft
 
-> Paste into the Devpost fields. Track: **MemoryAgent**. Repo: https://github.com/v1b3x0r/living-memory-engine (Apache-2.0).
+> Paste into the Devpost fields. Track: **MemoryAgent**.
+
+**Submission links (for judges):**
+- ▶️ **Try it live:** https://cm.viibe.to  (deployed on Alibaba Cloud — no setup, just open and talk)
+- 📦 **Repo (open source, Apache-2.0):** https://github.com/v1b3x0r/living-memory-engine
+- 🎬 **Demo video (< 3 min):** _paste YouTube link after upload_
+- 🧪 **Reproduce the evaluation:** `cd engine && npm run eval`
 
 ## Elevator pitch (one line)
 
