@@ -6,7 +6,10 @@ export interface ModelProfile {
 }
 
 export const PROFILES: ModelProfile[] = [
-  { id: 'ollama', label: 'Local (Ollama)',            // default — this Mac; models are fetched + pickable, these are fallbacks
+  { id: 'qwen', label: 'Qwen Cloud',                  // DEFAULT — works out of the box (key server-side via web/.env.local → /api/qwen proxy); no local setup
+    chat:  { baseURL: '/api/qwen/v1', model: 'qwen3.7-plus' },
+    embed: { baseURL: '/api/qwen/v1', model: 'text-embedding-v4' } },
+  { id: 'ollama', label: 'Local (Ollama)',            // this Mac; models are fetched + pickable, these are fallbacks
     chat:  { baseURL: 'http://localhost:11434/v1', model: 'gemma4:e2b' },
     embed: { baseURL: 'http://localhost:11434/v1', model: 'embeddinggemma:latest' } },
   { id: 'lmstudio', label: 'Local (LM Studio)',       // the other (4070ti) machine
@@ -18,9 +21,6 @@ export const PROFILES: ModelProfile[] = [
   { id: 'openai', label: 'OpenAI Direct', needsKey: true,
     chat:  { baseURL: 'https://api.openai.com/v1', model: 'gpt-4o-mini' },
     embed: { baseURL: 'https://api.openai.com/v1', model: 'text-embedding-3-small' } },
-  { id: 'qwen', label: 'Qwen Cloud',                  // hackathon profile — key lives server-side (web/.env.local → /api/qwen proxy)
-    chat:  { baseURL: '/api/qwen/v1', model: 'qwen3.7-plus' },
-    embed: { baseURL: '/api/qwen/v1', model: 'text-embedding-v4' } },
 ];
 
 const LS_PROFILE = 'nc.profile';

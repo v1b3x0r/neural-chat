@@ -35,11 +35,11 @@ describe('isMemoryOld', () => {
 });
 
 describe('fmtAge', () => {
-  it('null sentinel', () => expect(fmtAge(null)).toBe('ยังไม่มี'));
-  it('minutes bucket', () => expect(fmtAge(12 * 60_000)).toBe('12 นาที'));
-  it('hours bucket', () => expect(fmtAge(3 * 60 * 60_000)).toBe('3 ชั่วโมง'));
-  it('days bucket', () => expect(fmtAge(2 * DAY_MS)).toBe('2 วัน'));
-  it('floors negative at 0', () => expect(fmtAge(-5)).toBe('0 นาที'));
+  it('null sentinel', () => expect(fmtAge(null)).toBe('none'));
+  it('minutes bucket', () => expect(fmtAge(12 * 60_000)).toBe('12 min'));
+  it('hours bucket', () => expect(fmtAge(3 * 60 * 60_000)).toBe('3 hr'));
+  it('days bucket', () => expect(fmtAge(2 * DAY_MS)).toBe('2 days'));
+  it('floors negative at 0', () => expect(fmtAge(-5)).toBe('0 min'));
 });
 
 const NOMINAL: SelfState = {
@@ -50,7 +50,7 @@ const NOMINAL: SelfState = {
 describe('formatSelfState', () => {
   it('always shows all 5 facts labels', () => {
     const b = formatSelfState(NOMINAL);
-    for (const cue of ['ออนไลน์', 'คิดด้วยสมองในเครื่อง', 'ความจำเชิงความหมายพร้อม', 'ข่าวสภาพแวดล้อมสด', 'ความทรงจำล่าสุด']) {
+    for (const cue of ['online', 'thinking on a local model', 'semantic memory ready', 'live surroundings feed', 'last memory']) {
       expect(b).toContain(cue);
     }
     expect(b.startsWith('[Self-state]')).toBe(true);
@@ -58,45 +58,48 @@ describe('formatSelfState', () => {
 
   it('renders feed + memory ages via fmtAge', () => {
     const b = formatSelfState(NOMINAL);
-    expect(b).toContain('อัปเดต ~12 นาทีก่อน');
-    expect(b).toContain('ความทรงจำล่าสุด ~3 ชั่วโมงก่อน');
+    expect(b).toContain('updated ~12 min ago');
+    expect(b).toContain('last memory ~3 hr ago');
   });
 
-  it('stale feed renders hours, never the broken "ชั่วโมง นาที"', () => {
+  it('stale feed renders hours, never the broken "hr min"', () => {
     const b = formatSelfState({ ...NOMINAL, worldFeed: 'stale', worldFeedAgeMs: 3 * 60 * 60_000 });
-    expect(b).toContain('ข่าวสภาพแวดล้อมเก่า (อัปเดต ~3 ชั่วโมงก่อน)');
-    expect(b).not.toContain('ชั่วโมง นาที');
+    expect(b).toContain('surroundings feed is stale (updated ~3 hr ago)');
+    expect(b).not.toContain('hr min');
   });
 
   it('nominal → no directive line', () => {
-    expect(formatSelfState(NOMINAL)).not.toContain('(ปรับท่าที:');
+    expect(formatSelfState(NOMINAL)).not.toContain('(adjust stance:');
+  });
+
+  it('remote llm alone is nominal — no stance change vs local', () => {
+    expect(formatSelfState({ ...NOMINAL, llm: 'remote' })).not.toContain('(adjust stance:');
   });
 
   it('null memory age (newborn) is facts-only, not off-nominal', () => {
     const b = formatSelfState({ ...NOMINAL, memoryAgeMs: null });
-    expect(b).toContain('ยังไม่มีความทรงจำ');
-    expect(b).not.toContain('(ปรับท่าที:');
+    expect(b).toContain('no memories yet');
+    expect(b).not.toContain('(adjust stance:');
   });
 
   it.each([
-    ['offline',             { online: false },                                  'คิดอยู่ลำพังในเครื่อง'],
-    ['remote llm',          { llm: 'remote' },                                  'ความเป็นส่วนตัว'],
-    ['degraded embeddings', { embeddings: 'degraded' },                         'อย่าฟันธงว่าจำได้เป๊ะ'],
-    ['no embeddings',       { embeddings: 'unavailable' },                      'อย่าทำเหมือนนึกเรื่องเก่าออก'],
-    ['stale feed',          { worldFeed: 'stale', worldFeedAgeMs: 3 * 60 * 60_000 }, 'อย่าพูดเหมือนเห็นสดๆ'],
-    ['no feed',             { worldFeed: 'unavailable', worldFeedAgeMs: null }, 'อย่าแต่งสภาพอากาศ'],
-    ['old memory',          { memoryAgeMs: DAY_MS + 1 },                        'อย่าทึกทักว่าเรื่องในความจำยังเป็นปัจจุบัน'],
+    ['offline',             { online: false },                                  'thinking alone on-device'],
+    ['degraded embeddings', { embeddings: 'degraded' },                         'do not insist you remember it exactly'],
+    ['no embeddings',       { embeddings: 'unavailable' },                      'recalling something old'],
+    ['stale feed',          { worldFeed: 'stale', worldFeedAgeMs: 3 * 60 * 60_000 }, 'see it live'],
+    ['no feed',             { worldFeed: 'unavailable', worldFeedAgeMs: null }, 'do not invent weather'],
+    ['old memory',          { memoryAgeMs: DAY_MS + 1 },                        'still current'],
   ] as [string, Partial<SelfState>, string][])('off-nominal %s → directive present + its cue', (_name, patch, cue) => {
     const b = formatSelfState({ ...NOMINAL, ...patch });
-    expect(b).toContain('(ปรับท่าที:');
+    expect(b).toContain('(adjust stance:');
     expect(b).toContain(cue);
   });
 
   it('multiple off-nominal signals share one directive line', () => {
     const b = formatSelfState({ ...NOMINAL, online: false, embeddings: 'degraded' });
-    expect(b).toContain('คิดอยู่ลำพังในเครื่อง');
-    expect(b).toContain('อย่าฟันธงว่าจำได้เป๊ะ');
-    expect(b.match(/\(ปรับท่าที:/g)).toHaveLength(1);
+    expect(b).toContain('thinking alone on-device');
+    expect(b).toContain('do not insist you remember it exactly');
+    expect(b.match(/\(adjust stance:/g)).toHaveLength(1);
   });
 
   it('newborn: feed+embeddings clauses fire, memory clause does NOT', () => {
@@ -105,12 +108,12 @@ describe('formatSelfState', () => {
       worldFeed: 'unavailable', worldFeedAgeMs: null, memoryAgeMs: null,
     };
     const b = formatSelfState(NEWBORN);
-    expect(b).toContain('ยังไม่มีความจำเชิงความหมาย');
-    expect(b).toContain('ไม่มีข่าวสภาพแวดล้อม');
-    expect(b).toContain('ยังไม่มีความทรงจำ');
-    expect(b).toContain('(ปรับท่าที:');
-    expect(b).toContain('อย่าแต่งสภาพอากาศ');
-    expect(b).toContain('อย่าทำเหมือนนึกเรื่องเก่าออก');
-    expect(b).not.toContain('อย่าทึกทักว่าเรื่องในความจำยังเป็นปัจจุบัน');
+    expect(b).toContain('no semantic memory yet');
+    expect(b).toContain('no surroundings feed');
+    expect(b).toContain('no memories yet');
+    expect(b).toContain('(adjust stance:');
+    expect(b).toContain('do not invent weather');
+    expect(b).toContain('recalling something old');
+    expect(b).not.toContain('still current');
   });
 });

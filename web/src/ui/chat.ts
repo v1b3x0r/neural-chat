@@ -73,11 +73,21 @@ export function mountChat(root: HTMLElement, openDrawer: () => void, openMemory:
       for await (const chunk of labRespond(engine, chatPort, persona.id, persona.systemPrompt ?? '', text, onPhase)) { if (stillHere()) { reply.textContent += chunk; thread.scrollTop = thread.scrollHeight; } }
       if (stillHere()) await paint(storage);             // resync ids/ts; skip if user switched persona mid-stream
     } catch {
-      // stream dropped (e.g. local model unloaded): undo the orphaned user turn so a resend won't duplicate it in memory
+      // stream dropped (model unreachable / unloaded): undo the orphaned user turn so a resend won't duplicate it in memory,
+      // and surface a clear, tappable reason instead of failing silently (the #1 confusion when the chosen model isn't up).
       const snap = await storage.load();
       const last = snap.messages[snap.messages.length - 1];
       if (last && last.role === 'user') await engine.rewindTo(last.id);
-      if (stillHere()) { input.value = text; await paint(storage); }
+      if (stillHere()) {
+        input.value = text;
+        await paint(storage);
+        const err = document.createElement('button');
+        err.className = 'sys-error';
+        err.textContent = "Couldn't reach the language model. Tap to pick one — Qwen Cloud works without any setup.";
+        err.addEventListener('click', openDrawer);
+        thread.appendChild(err);
+        thread.scrollTop = thread.scrollHeight;
+      }
     } finally { busy = false; send.disabled = false; phase.hidden = true; }
   }
 

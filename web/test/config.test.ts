@@ -4,9 +4,9 @@ import { PROFILES, getActiveProfile, setActiveProfile, getChatCfg, getEmbedCfg, 
 beforeEach(() => localStorage.clear());
 
 describe('config profiles', () => {
-  it('defaults to the first profile (Local Ollama on this Mac)', () => {
+  it('defaults to the first profile (Qwen Cloud — works out of the box)', () => {
     expect(getActiveProfile().id).toBe(PROFILES[0]!.id);
-    expect(getActiveProfile().id).toBe('ollama');
+    expect(getActiveProfile().id).toBe('qwen');
   });
 
   it('switching profile changes resolved chat+embed cfg together', () => {

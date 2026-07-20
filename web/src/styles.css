@@ -134,3 +134,10 @@ details.advanced[open] > summary { color:var(--text); }
 .pane-btn.danger:hover { border-color:#b23b2a; background:color-mix(in srgb, #b23b2a 8%, var(--bg)); }
 /* the retrieve button in Advanced sits above its output */
 .advanced .pane-btn { margin-top:8px; }
+
+/* Connection / model-unreachable notice — tappable, opens the model picker */
+.sys-error { align-self:center; max-width:88%; margin:8px 0; padding:11px 15px; border-radius:var(--r-field);
+  border:1px solid color-mix(in srgb, #b23b2a 40%, var(--border)); background:color-mix(in srgb, #b23b2a 7%, var(--surface));
+  color:var(--text); font:inherit; font-size:13px; line-height:1.45; text-align:left; cursor:pointer;
+  transition:background .18s; }
+.sys-error:hover { background:color-mix(in srgb, #b23b2a 12%, var(--surface)); }
