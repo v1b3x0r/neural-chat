@@ -25,15 +25,15 @@ you ── talk ──▶  retrieve a few relevant memories + recent turns  ─�
 
 ```mermaid
 flowchart LR
-  subgraph Browser["Browser (web/ — Vite + vanilla TS)"]
+  subgraph Browser["Browser (web/ - Vite + vanilla TS)"]
     UI[chat.ts UI] --> LR[labRespond]
-    LR --> E[MemoryEngine\n retrieve / tick]
-    E --> IDB[(IndexedDB\n per-persona snapshots)]
-    AMB[ambient.ts\n Open-Meteo] --> E
+    LR --> E["MemoryEngine<br/>retrieve / tick"]
+    E --> IDB[("IndexedDB<br/>per-persona snapshots")]
+    AMB["ambient.ts<br/>Open-Meteo"] --> E
     SS[selfstate.ts] --> LR
   end
-  LR -->|/api/qwen/v1| PX[Key-safe proxy\n .env.local QWEN_API_KEY]
-  PX -->|chat + embeddings| QW[Qwen Cloud\n Alibaba Cloud Model Studio\n qwen3.7-plus · text-embedding-v4]
+  LR -->|/api/qwen/v1| PX["Key-safe proxy<br/>.env.local QWEN_API_KEY"]
+  PX -->|chat + embeddings| QW["Qwen Cloud<br/>Alibaba Cloud Model Studio<br/>qwen3.7-plus · text-embedding-v4"]
 ```
 
 ## Evaluation vs naive baseline
@@ -65,7 +65,7 @@ All chat and embedding inference for the "Qwen Cloud" profile runs on **Qwen Clo
 - [`web/vite.config.ts`](web/vite.config.ts) — the actual middleware wiring: `browser → /api/qwen/v1 → (key from web/.env.local QWEN_API_KEY) → dashscope-intl.aliyuncs.com`.
 - [`web/src/lib/config.ts`](web/src/lib/config.ts) — the `qwen` model profile (`chat: qwen3.7-plus`, `embed: text-embedding-v4`) selectable from the ☰ drawer.
 
-Console usage screenshots for the submission live in `docs/superpowers/hackathon/evidence/`.
+The three code files above are the primary deployment proof. Qwen Cloud console usage screenshots are added under `docs/superpowers/hackathon/evidence/` before submission (that folder's README lists the exact captures).
 
 ## Quick start
 
