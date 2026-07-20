@@ -162,3 +162,14 @@ details.advanced[open] > summary { color:var(--text); }
 .bctx-bar.work { background:var(--accent); min-width:3px; }
 .why-subhead { font-size:11px; text-transform:uppercase; letter-spacing:.07em; color:var(--subtext); margin:18px 0 6px;
   padding-top:14px; border-top:1px solid var(--border); }
+
+/* Markdown rendered inside model bubbles — real-chat feel (bold, code, links) */
+.bubble.model strong { font-weight:650; }
+.bubble.model em { font-style:italic; }
+.bubble.model a { color:var(--accent); text-decoration:underline; text-underline-offset:2px; }
+.bubble.model code.md-code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.88em;
+  background:color-mix(in srgb, var(--text) 9%, transparent); padding:1px 6px; border-radius:6px; }
+.bubble.model pre.md-pre { margin:9px 0 4px; padding:12px 14px; border-radius:10px;
+  background:color-mix(in srgb, var(--text) 9%, transparent); overflow-x:auto; }
+.bubble.model pre.md-pre code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.86em;
+  line-height:1.5; white-space:pre; background:none; padding:0; border:0; }

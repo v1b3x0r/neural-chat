@@ -4,6 +4,7 @@ import { getActivePersona, subscribeActivePersona } from '../lib/personas';
 import { getActiveProfile, getKey, AMBIENT } from '../lib/config';
 import { observe, maybeGreet } from '../lib/ambient';
 import { labRespond, type TurnPhase } from '../lib/labrespond';
+import { renderMarkdown } from '../lib/markdown';
 
 export function mountChat(root: HTMLElement, openDrawer: () => void, openMemory: () => void): void {
   root.innerHTML = `
@@ -32,7 +33,11 @@ export function mountChat(root: HTMLElement, openDrawer: () => void, openMemory:
   function bubble(role: Message['role'], text: string): HTMLElement {
     const el = document.createElement('div');
     el.className = `bubble ${role}`;
-    el.textContent = text;                 // textContent, never innerHTML — safe for LLM/user text
+    // Model replies render markdown (renderMarkdown escapes first, then allowlists tags — XSS-safe).
+    // User text stays literal; the streaming bubble starts empty and appends raw chunks (textContent),
+    // then paint() re-renders it through here as markdown once the turn is stored.
+    if (role === 'model' && text) el.innerHTML = renderMarkdown(text);
+    else el.textContent = text;
     thread.appendChild(el);
     thread.scrollTop = thread.scrollHeight;
     return el;
