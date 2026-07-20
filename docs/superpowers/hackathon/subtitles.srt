@@ -1,0 +1,34 @@
+1
+00:00:00,000 --> 00:00:20,000
+New session — it already remembers what you told it last time.
+No full history resent.
+
+2
+00:00:20,000 --> 00:00:45,000
+Chatbots don't have memory — they have a context window.
+It fills, they forget, or you resend everything.
+
+3
+00:00:45,000 --> 00:01:25,000
+The engine lets memory settle —
+form, decay, merge, crystallize into a self.
+
+4
+00:01:25,000 --> 00:01:55,000
+Each turn the model sees only a small, relevant working set —
+not the whole log.
+
+5
+00:01:55,000 --> 00:02:20,000
+Measured vs a full-history baseline — one critical fact out of 31
+at a fraction of the tokens. Reported honestly, including what's not solved yet.
+
+6
+00:02:20,000 --> 00:02:40,000
+And เชียงใหม่ senses the real world — live weather and air —
+a living proof, not just a demo.
+
+7
+00:02:40,000 --> 00:02:56,000
+All inference runs on Qwen Cloud / Alibaba Cloud Model Studio.
+Open source, Apache-2.0. — Living Memory Engine
