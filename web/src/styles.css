@@ -8,8 +8,9 @@
   --serif:ui-serif,Georgia,"Iowan Old Style","Times New Roman",serif;
 }
 :root[data-theme="dark"] {
-  --bg:#1a1712; --ambient:#2a2119; --surface:#221d16; --text:#ece5d8; --subtext:#a89a86;
-  --accent:#c67a54; --onAccent:#1a1712; --theirsBg:#2a241b; --border:#3a3227;
+  /* clean near-black (not warm-brown), gradient nearly flat so there's no two-tone wash; clay accent kept for brand coherence */
+  --bg:#131215; --ambient:#171619; --surface:#1d1c21; --text:#ededed; --subtext:#a3a0a8;
+  --accent:#c67a54; --onAccent:#17161a; --theirsBg:#201f25; --border:#2c2b32;
 }
 * { box-sizing:border-box; }
 html, body, #app { height:100%; }
