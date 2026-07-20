@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildWhy, bySource, type WhySnapshot, type UsedIds } from '../src/lib/why';
+import { buildWhy, bySource, estTokens, boundedContext, type WhySnapshot, type UsedIds } from '../src/lib/why';
 
 const snap: WhySnapshot = {
   selfFacets: [
@@ -44,5 +44,19 @@ describe('buildWhy', () => {
     const groups = bySource(w.used);
     expect(groups.map(g => g.source)).toEqual(['Memory', 'Live']);
     expect(groups[0]!.items[0]!.id).toBe('sf1');
+  });
+});
+
+describe('boundedContext', () => {
+  it('estTokens ~ chars/4', () => {
+    expect(estTokens('a'.repeat(40))).toBe(10);
+    expect(estTokens('')).toBe(0);
+  });
+  it('working context sums its parts; conversation counts all messages; working stays bounded << conversation', () => {
+    const msgs = Array.from({ length: 20 }, () => ({ text: 'x'.repeat(400) })); // long, growing conversation
+    const b = boundedContext(msgs, ['y'.repeat(400)]);                          // small working context
+    expect(b.messages).toBe(20);
+    expect(b.workingTokens).toBe(100);
+    expect(b.convoTokens).toBeGreaterThan(b.workingTokens * 15);                // bounded, not proportional
   });
 });

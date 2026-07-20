@@ -10,7 +10,7 @@
 
 ## Elevator pitch (one line)
 
-A TypeScript memory substrate for agents that remember like a mind, not a log — it decays, consolidates, and crystallizes memories so a single thread never overflows, and each turn the model sees only a small retrieved working set. Proven by เชียงใหม่ (Chiang Mai), a city-entity that senses the real world and remembers you across sessions. Runs on Qwen Cloud.
+A TypeScript **context-composition engine** for agents: it decays, consolidates, and crystallizes memories, then composes a small **working context** each turn from memory + live signals + plans — so the model never receives the whole conversation. **Conversation length and model context are no longer proportional.** Proven by เชียงใหม่ (Chiang Mai), a city-entity that senses the real world and remembers you across sessions. Runs on Qwen Cloud.
 
 ## Inspiration
 

@@ -148,3 +148,17 @@ details.advanced[open] > summary { color:var(--text); }
   color:var(--text); font:inherit; font-size:13px; line-height:1.45; text-align:left; cursor:pointer;
   transition:background .18s; }
 .sys-error:hover { background:color-mix(in srgb, #b23b2a 12%, var(--surface)); }
+
+/* Bounded working context — the "aha": conversation grows, working context stays small */
+.why-tagline { font-family:var(--serif); font-style:italic; color:var(--subtext); font-size:14px; margin:-6px 0 14px; }
+.bctx { margin:2px 0 16px; }
+.bctx-row { margin-bottom:11px; }
+.bctx-top { display:flex; justify-content:space-between; align-items:baseline; gap:10px; margin-bottom:5px; }
+.bctx-label { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--text); }
+.bctx-val { font-size:12px; color:var(--subtext); }
+.bctx-track { height:10px; border-radius:5px; background:var(--bg); border:1px solid var(--border); overflow:hidden; }
+.bctx-bar { height:100%; border-radius:5px; }
+.bctx-bar.full { background:color-mix(in srgb, var(--subtext) 45%, var(--border)); }
+.bctx-bar.work { background:var(--accent); min-width:3px; }
+.why-subhead { font-size:11px; text-transform:uppercase; letter-spacing:.07em; color:var(--subtext); margin:18px 0 6px;
+  padding-top:14px; border-top:1px solid var(--border); }

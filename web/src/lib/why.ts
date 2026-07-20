@@ -52,3 +52,21 @@ export function bySource(items: WhyItem[]): { source: Source; items: WhyItem[] }
     .map(source => ({ source, items: items.filter(i => i.source === source) }))
     .filter(g => g.items.length > 0);
 }
+
+// --- Bounded working context: the architectural "aha" — the conversation grows, but what the model
+// actually receives each turn stays small and bounded (top-K retrieval + a capped tail), so conversation
+// length and model context are no longer proportional. ~4 chars/token is a rough-but-honest estimate.
+export function estTokens(text: string): number {
+  return Math.ceil((text?.length ?? 0) / 4);
+}
+
+export interface BoundedContext { convoTokens: number; workingTokens: number; messages: number }
+
+/** Compare the FULL conversation against the small working context the engine composed for this turn. */
+export function boundedContext(allMessages: { text: string }[], workingParts: string[]): BoundedContext {
+  return {
+    convoTokens: estTokens(allMessages.map(m => m.text).join('\n')),
+    workingTokens: workingParts.reduce((n, p) => n + estTokens(p), 0),
+    messages: allMessages.length,
+  };
+}

@@ -4,9 +4,26 @@ import { getEngine, resetEngines } from '../lib/engine';
 import { getActivePersona, setActivePersona } from '../lib/personas';
 import { getLabToggles, setLabToggles, type LabToggles } from '../lib/config';
 import { getLastFed, getLastWhy } from '../lib/labrespond';
-import { buildWhy, bySource, type WhyItem, type Source } from '../lib/why';
+import { buildWhy, bySource, boundedContext, type WhyItem, type Source, type BoundedContext } from '../lib/why';
 import { wipeWorld } from '../lib/ambient';
 import { el } from './dom';
+
+// Bounded-context bars: the architectural "aha" — the conversation grows, but the working context the
+// engine composes for each turn stays small. Conversation length and model context are not proportional.
+function bctxBars(b: BoundedContext): HTMLElement {
+  const maxTok = Math.max(b.convoTokens, b.workingTokens, 1);   // scale both to the larger, so it never looks broken
+  const row = (label: string, val: string, tokens: number, cls: string): HTMLElement => {
+    const bar = el('div', { className: `bctx-bar ${cls}` }); bar.style.width = `${Math.max(2, (tokens / maxTok) * 100)}%`;
+    return el('div', { className: 'bctx-row' }, [
+      el('div', { className: 'bctx-top' }, [el('span', { className: 'bctx-label', textContent: label }), el('span', { className: 'bctx-val', textContent: val })]),
+      el('div', { className: 'bctx-track' }, [bar]),
+    ]);
+  };
+  return el('div', { className: 'bctx' }, [
+    row('Conversation', `~${b.convoTokens.toLocaleString()} tokens · ${b.messages} messages`, b.convoTokens, 'full'),
+    row('Working context', `~${b.workingTokens.toLocaleString()} tokens`, b.workingTokens, 'work'),
+  ]);
+}
 
 const trunc = (s: string, n = 90) => (s.length > n ? s.slice(0, n) + '…' : s);
 function bar(v: number): HTMLElement { const d = el('div', { className: 'mem-bar' }); d.style.width = `${Math.min(100, Math.max(0, v * 100))}%`; return d; }
@@ -66,22 +83,30 @@ export function mountMemoryPane(host: HTMLElement): { open: () => void } {
       el('div', { className: 'pane-actions' }, [refresh, wipe]),
     ]));
 
-    // --- L2: WHY THIS ANSWER (the product story — context composition, not storage) ---
+    // --- L2: WORKING CONTEXT (the product story — a context composition engine, not a memory store) ---
+    const fed = await getLastFed(persona.id);
     const why = await getLastWhy(persona.id);
     const whyKids: Node[] = [];
     if (!why) {
-      whyKids.push(el('div', { className: 'why-empty', textContent: 'Chat first — then this shows the context the engine assembled for the reply, and what it had available but left out.' }));
+      whyKids.push(el('div', { className: 'why-empty', textContent: 'Chat first — then this shows the small working context the engine composed for the reply out of the whole conversation.' }));
     } else {
+      // bounded context: full conversation vs. what the model actually received this turn (system + injected context + capped tail)
+      const tailText = fed ? snap.messages.slice(-fed.tailCount).map(m => m.text).join('\n') : '';
+      const bc = boundedContext(snap.messages, fed ? [fed.system, fed.inject, tailText] : []);
+      whyKids.push(bctxBars(bc));
+      whyKids.push(el('div', { className: 'why-lead', textContent: `Working context is bounded — top-K memory plus a capped tail, roughly constant however long the conversation gets. Conversation length and model context are no longer proportional.` }));
+
       const v = buildWhy(why.query, why.used, snap);
+      whyKids.push(el('div', { className: 'why-subhead', textContent: 'What the model received' }));
       whyKids.push(el('div', { className: 'why-query', textContent: `“${trunc(v.query, 90)}”` }));
-      whyKids.push(el('div', { className: 'why-lead', textContent: `The engine selected ${v.usedCount} of ${v.totalCount} context items — from memory, live signals and plans — before the model generated this reply.` }));
       whyKids.push(el('div', { className: 'why-head used', textContent: `Used context (${v.usedCount})` }));
       whyKids.push(...(v.used.length ? whyList(v.used, true) : [el('div', { className: 'why-none', textContent: 'nothing selected this turn' })]));
       whyKids.push(el('div', { className: 'why-head available', textContent: `Available, not used (${v.available.length})` }));
       whyKids.push(...(v.available.length ? whyList(v.available, false) : [el('div', { className: 'why-none', textContent: '—' })]));
     }
     host.append(el('div', { className: 'drawer-section why-section' }, [
-      el('h3', { textContent: '✨ Why this answer' }),
+      el('h3', { textContent: '✨ Working context' }),
+      el('div', { className: 'why-tagline', textContent: 'what the model actually receives' }),
       ...whyKids,
     ]));
 
@@ -103,7 +128,6 @@ export function mountMemoryPane(host: HTMLElement): { open: () => void } {
     );
     posSel.addEventListener('change', () => setLabToggles({ ...getLabToggles(), timePos: posSel.value as LabToggles['timePos'] }));
 
-    const fed = await getLastFed(persona.id);
     const fedBox = el('pre', { className: 'mem-tap' });
     fedBox.textContent = fed
       ? `system:\n${fed.system || '(empty)'}\n\ninject:\n${fed.inject || '(empty)'}\n\n(+ ${fed.tailCount} tail messages)`
