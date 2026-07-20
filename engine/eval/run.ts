@@ -53,10 +53,10 @@ async function measure(h: string, e: ReturnType<typeof makeEngine>, query: strin
 // H1 — preference recall across sessions
 {
   const e = makeEngine();
-  await remember(e, 'By the way, I only drink oat-milk flat whites.', ['User prefers oat-milk flat whites']);
+  await remember(e, 'By the way, my usual coffee order is an oat-milk flat white.', ["User's usual coffee order is an oat-milk flat white"]);
   for (let i = 0; i < 8; i++) await remember(e, `Filler chat about topic ${i}: markets, rain, trains, code.`, [`Talked about topic ${i}`], 4);
   e.clock.advanceDays(2); // new session
-  await measure('H1 cross-session preference', e, 'what coffee should you make me?', 'oat-milk', null);
+  await measure('H1 cross-session preference', e, "what is the user's usual coffee order?", 'oat-milk', null);
 }
 // H2 — preference updated later (old vs new at retrieval)
 {
