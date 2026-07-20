@@ -1,7 +1,8 @@
+import 'fake-indexeddb/auto';
 import { describe, it, expect } from 'vitest';
-import { assembleInject } from '../src/lib/labrespond';
+import { assembleInject, labRespond, type TurnPhase } from '../src/lib/labrespond';
 import type { LabToggles } from '../src/lib/config';
-import type { InjectionContext } from '@nature-labs/living-memory-engine';
+import type { InjectionContext, MemoryEngine, ChatPort } from '@nature-labs/living-memory-engine';
 
 const ctx: InjectionContext = {
   selfTier: [{ id: 's', statement: 'I am the city', kind: 'value', strength: 1, updatedAt: 0 }],
@@ -68,5 +69,18 @@ describe('assembleInject — self-state block', () => {
     const { inject } = assembleInject(ctx, ALL, 1000);
     expect(inject).not.toContain('[Self-state]');
     expect(inject.indexOf('[Current time:')).toBe(0);
+  });
+});
+
+describe('labRespond phases', () => {
+  it('reports recall → stream → consolidate → idle in order', async () => {
+    const phases: TurnPhase[] = [];
+    const engine = {
+      ingestUser: async () => {}, ingestModel: async () => {}, tick: async () => {},
+      retrieve: async () => ({ selfTier: [], episodic: [], prospective: [], tail: [] }),
+    } as unknown as MemoryEngine;
+    const chatPort = { stream: async function* () { yield 'hi'; } } as unknown as ChatPort;
+    for await (const _ of labRespond(engine, chatPort, 'test-ns', '', 'hello', p => phases.push(p))) { /* drain */ }
+    expect(phases).toEqual(['recall', 'stream', 'consolidate', 'idle']);
   });
 });

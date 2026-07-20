@@ -29,10 +29,13 @@ export function assembleInject(ctx: InjectionContext, t: LabToggles, now: number
   return { inject: parts.join('\n\n'), tail: t.tail ? ctx.tail : [] };
 }
 
+export type TurnPhase = 'recall' | 'stream' | 'consolidate' | 'idle';
+
 // Mirrors engine.respond() at the orchestration level (ingestUser → retrieve → inject → stream → ingestModel → tick)
 // but assembles the injection from the lab toggles, so the founder can tune exactly what the LLM receives.
 // Engine internals are untouched; with all toggles default this is behaviourally identical to engine.respond().
-export async function* labRespond(engine: MemoryEngine, chatPort: ChatPort, ns: string, systemPrompt: string, text: string): AsyncIterable<string> {
+export async function* labRespond(engine: MemoryEngine, chatPort: ChatPort, ns: string, systemPrompt: string, text: string, onPhase?: (p: TurnPhase) => void): AsyncIterable<string> {
+  onPhase?.('recall');
   await engine.ingestUser(text);
   const t = getLabToggles();
   const now = Date.now();
@@ -42,7 +45,10 @@ export async function* labRespond(engine: MemoryEngine, chatPort: ChatPort, ns: 
   await setRaw(lastFedKey(ns), { system: systemPrompt, inject, tailCount: tail.length, at: now } satisfies LastFed);
   devlog('last-fed', { ns, user: text, system: systemPrompt, inject, tail: tail.map(m => ({ role: m.role, text: m.text })) });
   let full = '';
+  onPhase?.('stream');
   for await (const chunk of chatPort.stream(tail, systemPrompt, inject)) { full += chunk; yield chunk; }
+  onPhase?.('consolidate');
   await engine.ingestModel(full);
   await engine.tick();
+  onPhase?.('idle');
 }

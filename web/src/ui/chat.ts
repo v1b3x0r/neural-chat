@@ -3,13 +3,14 @@ import { getEngine } from '../lib/engine';
 import { getActivePersona, subscribeActivePersona } from '../lib/personas';
 import { getActiveProfile, getKey, AMBIENT } from '../lib/config';
 import { observe, maybeGreet } from '../lib/ambient';
-import { labRespond } from '../lib/labrespond';
+import { labRespond, type TurnPhase } from '../lib/labrespond';
 
 export function mountChat(root: HTMLElement, openDrawer: () => void, openMemory: () => void): void {
   root.innerHTML = `
     <header class="topbar"><button id="menu" class="icon" aria-label="menu">☰</button><span class="title"></span><button id="mem" class="icon" aria-label="memory">🧠</button></header>
     <main id="thread" class="thread"></main>
     <div id="banner" class="banner" hidden>ต้องใส่ API key ก่อน — แตะเพื่อตั้งค่า</div>
+    <div id="phase" class="phase" hidden></div>
     <form id="composer" class="composer">
       <textarea id="input" rows="1" placeholder="พิมพ์หาเชียงใหม่..."></textarea>
       <button id="send" class="send" type="submit" aria-label="send">↑</button>
@@ -19,6 +20,7 @@ export function mountChat(root: HTMLElement, openDrawer: () => void, openMemory:
   const thread = q('#thread'), title = q('.title'), banner = q<HTMLElement>('#banner');
   const input = q<HTMLTextAreaElement>('#input'), send = q<HTMLButtonElement>('#send');
   const composer = q<HTMLFormElement>('#composer');
+  const phase = q<HTMLElement>('#phase');
   let busy = false;
 
   q('#menu').addEventListener('click', openDrawer);
@@ -66,7 +68,9 @@ export function mountChat(root: HTMLElement, openDrawer: () => void, openMemory:
     const reply = bubble('model', '');
     try {
       // labRespond mirrors engine.respond() but feeds the LLM per the lab toggles (tunable from the 🧠 pane)
-      for await (const chunk of labRespond(engine, chatPort, persona.id, persona.systemPrompt ?? '', text)) { if (stillHere()) { reply.textContent += chunk; thread.scrollTop = thread.scrollHeight; } }
+      const PHASE_TEXT: Record<TurnPhase, string> = { recall: '🔍 กำลังนึกความจำ…', stream: '', consolidate: '🧠 กำลังตกตะกอนความจำ…', idle: '' };
+      const onPhase = (p: TurnPhase) => { if (!stillHere()) return; phase.textContent = PHASE_TEXT[p]; phase.hidden = !PHASE_TEXT[p]; };
+      for await (const chunk of labRespond(engine, chatPort, persona.id, persona.systemPrompt ?? '', text, onPhase)) { if (stillHere()) { reply.textContent += chunk; thread.scrollTop = thread.scrollHeight; } }
       if (stillHere()) await paint(storage);             // resync ids/ts; skip if user switched persona mid-stream
     } catch {
       // stream dropped (e.g. local model unloaded): undo the orphaned user turn so a resend won't duplicate it in memory
@@ -74,7 +78,7 @@ export function mountChat(root: HTMLElement, openDrawer: () => void, openMemory:
       const last = snap.messages[snap.messages.length - 1];
       if (last && last.role === 'user') await engine.rewindTo(last.id);
       if (stillHere()) { input.value = text; await paint(storage); }
-    } finally { busy = false; send.disabled = false; }
+    } finally { busy = false; send.disabled = false; phase.hidden = true; }
   }
 
   composer.addEventListener('submit', e => { e.preventDefault(); const t = input.value; input.value = ''; input.style.height = 'auto'; void submit(t); });
