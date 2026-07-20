@@ -1,7 +1,23 @@
-# neural-chat — NEXT SESSION (warp point)
+# living-memory-engine — NEXT SESSION (warp point)
 
-> Read THIS first to resume. Side project (not HomeLog). Last big session: 2026-06-05 (prospective-resolution + Spec 1A attributed multi-person memory, both merged to main). Prior: 2026-06-03 (self-state grounding), 2026-06-02 (web pivot + ambient oracle).
-> One-line: a personal **living-memory chat** — talk forever; a TS memory engine decays/consolidates/crystallizes instead of stuffing context. Now a **plain web app** whose star is **เชียงใหม่**, a province-entity that observes the real world (Open-Meteo) and greets you first. Runs fully local on Ollama.
+> Read THIS first to resume. Side project (not HomeLog). Last big session: **2026-07-20 (Qwen Cloud hackathon — shipped a live submission)**. Prior: 2026-06-05 (prospective-resolution + Spec 1A attributed multi-person memory), 2026-06-03 (self-state grounding), 2026-06-02 (web pivot + ambient oracle).
+> One-line: a **living-memory engine** — talk forever; a TS engine decays/consolidates/crystallizes instead of stuffing context. Star is **เชียงใหม่**, a Chiang-Mai entity that senses the real world (Open-Meteo) and remembers across sessions. **Default profile = Qwen Cloud; deployed live on Alibaba Cloud.** Local Ollama still an option.
+
+## ✅ 2026-07-20 — Qwen Cloud hackathon (MemoryAgent track) — SHIPPED a live submission
+Repo **renamed `neural-chat` → `living-memory-engine`** (public, Apache-2.0; GitHub redirects old links). All hackathon assets in one bucket: **`docs/superpowers/hackathon/`** — start at `codex-brief.md`. What landed (all pushed to main, engine 92 + web 74 tests green, tsc 0, zero engine edits):
+- **Qwen Cloud integration** — new default profile via key-safe proxy: pure rules `web/src/lib/qwenproxy.ts` (path/model allowlist, 768-dim, max_tokens cap) wired as Vite dev middleware + `web/server.mjs` (prod). Key in `web/.env.local` (`QWEN_API_KEY`), never in client.
+- **Live deploy on Alibaba Cloud** — `server.mjs` (zero-dep Node) under systemd `memory-engine` behind nginx on an Alibaba Simple Application Server, Cloudflare TLS → **https://cm.viibe.to** (+ `http://47.79.255.217`). Runbook: `docs/superpowers/hackathon/DEPLOY.md`.
+- **L2 "why this answer"** explainability (`web/src/lib/why.ts` + `ui/debug.ts`) — Used context vs Available, source badges (Memory/Live/Plan); raw tiers under Advanced. Pane inverted to product-first per advisor.
+- **English UI chrome + reply-mirrors-language** — เชียงใหม่ replies Thai to Thai, English to English. `[Self-state]` block now English (`(adjust stance: …)`).
+- **Restyle** — warm-editorial (clay accent, serif masthead, haze). **Dark = clean near-black, Light = beige.** White-canvas bug fixed at root (`html { background }` + `color-scheme`).
+- **Evaluation** — deterministic `engine/eval/run.ts` (`npm run eval`), H1–H4 vs full-history baseline (H3: 1 of 31 @ ~23 vs ~428 tokens; H2 honest "both retrieved" finding).
+- **Demo video 2:25** (`docs/superpowers/hackathon/media/demo.mp4`) — burned-in EN subs + OpenAI-TTS (sage) VO, built from live-app captures via chrome-devtools + ffmpeg.
+- **Repo tidy** — loose root PNGs moved out (`.assets-scratch/`, gitignored); `.gitignore` hardened.
+- **Advisor ledger** `advisor-inbox.md` — 5 GPT rounds triaged (A1–A27).
+
+**Remaining founder actions before Submit (deadline 2026-07-20 14:00 PDT):** upload `media/demo.mp4` → YouTube → paste link into `devpost-draft.md` → paste into Devpost (MemoryAgent) → **Submit**. Codex does a final review pass (`codex-brief.md`).
+
+**Known-deferred (post-hackathon, non-blocking):** proxy mid-stream 502 guard (`if(!res.headersSent)` — dev middleware only; `server.mjs` already has it); Spec 1B privacy-scoped retrieval + persons viz; contradiction-aware consolidation (the H2 gap).
 
 ## ✅ DONE + VERIFIED LIVE 2026-06-02 — web pivot, Phase 1 + Phase 2
 

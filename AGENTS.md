@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Codex (Codex.ai/code) when working with code in this repository.
 
 ## What this is
 
@@ -68,6 +68,6 @@ cd engine && npm run build     # tsc -p tsconfig.build.json → dist/   (REQUIRE
 
 ## Workflow conventions
 
-- Git: commit only when asked. Commit trailer: `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`.
+- Git: commit only when asked. Commit trailer: `Co-Authored-By: Codex Opus 4.8 (1M context) <noreply@anthropic.com>`.
 - This project uses the Superpowers flow: brainstorm → spec (`docs/superpowers/specs/`) → plan (`docs/superpowers/plans/`) → TDD implement. Specs/plans are the source of truth for in-flight features.
 - Responses to the founder are in Thai; code/comments in English.
