@@ -22,3 +22,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# local captures / scratch — never commit (declutter the working dir)
+.assets-scratch/
+.video/
+.playwright-mcp/
+.debug/
+/*.png
+/*.mov
