@@ -59,13 +59,16 @@ This offline harness uses that deterministic **lexical** fake-embedder, so each 
 
 ## Alibaba Cloud deployment proof
 
-All chat and embedding inference for the "Qwen Cloud" profile runs on **Qwen Cloud / Alibaba Cloud Model Studio** (`https://dashscope-intl.aliyuncs.com/compatible-mode/v1`), not a local model. The browser never holds the API key — it talks to a same-origin dev proxy that injects the key server-side and enforces a path/model allowlist and a `max_tokens` cap before forwarding upstream:
+**Live, deployed and running on Alibaba Cloud.** The app (static build + the Qwen proxy) runs as a systemd Node service behind nginx on an Alibaba Cloud server — reachable now at **http://47.79.255.217** (HTTPS at `https://cm.viibe.to` once DNS + Let's Encrypt land). All chat and embedding inference runs on **Qwen Cloud / Alibaba Cloud Model Studio** (`https://dashscope-intl.aliyuncs.com/compatible-mode/v1`). So both tiers are on Alibaba Cloud: the backend host *and* the model inference.
 
-- [`web/src/lib/qwenproxy.ts`](web/src/lib/qwenproxy.ts) — pure request rules: allowed paths (`/models`, `/chat/completions`, `/embeddings`), model allowlist (`qwen*` for chat, `text-embedding-v4` for embeddings), forced `dimensions: 768` and `enable_thinking: false`.
-- [`web/vite.config.ts`](web/vite.config.ts) — the actual middleware wiring: `browser → /api/qwen/v1 → (key from web/.env.local QWEN_API_KEY) → dashscope-intl.aliyuncs.com`.
-- [`web/src/lib/config.ts`](web/src/lib/config.ts) — the `qwen` model profile (`chat: qwen3.7-plus`, `embed: text-embedding-v4`) selectable from the ☰ drawer.
+The browser never holds the API key — it talks to a same-origin proxy that injects the key server-side and enforces a path/model allowlist and a `max_tokens` cap before forwarding upstream:
 
-The three code files above are the primary deployment proof. Qwen Cloud console usage screenshots are added under `docs/superpowers/hackathon/evidence/` before submission (that folder's README lists the exact captures).
+- [`web/server.mjs`](web/server.mjs) — the **production server** deployed on Alibaba Cloud: serves the static build and proxies `browser → /api/qwen/v1 → (key from server env) → dashscope-intl.aliyuncs.com`.
+- [`web/src/lib/qwenproxy.ts`](web/src/lib/qwenproxy.ts) — pure, unit-tested request rules: allowed paths (`/models`, `/chat/completions`, `/embeddings`), model allowlist (`qwen*` for chat, `text-embedding-v4` for embeddings), forced `dimensions: 768` and `enable_thinking: false`.
+- [`web/vite.config.ts`](web/vite.config.ts) — the same proxy as dev middleware for local development.
+- [`web/src/lib/config.ts`](web/src/lib/config.ts) — the `qwen` model profile (default; `chat: qwen3.7-plus`, `embed: text-embedding-v4`).
+
+Live-deploy screenshot (เชียงใหม่ answering through the Alibaba-hosted server) is in [`docs/superpowers/hackathon/evidence/`](docs/superpowers/hackathon/evidence).
 
 ## Quick start
 

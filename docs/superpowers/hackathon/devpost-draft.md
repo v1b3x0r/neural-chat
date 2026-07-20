@@ -47,10 +47,7 @@ A deterministic script (`engine/eval/run.ts`, reproduce with `cd engine && npm r
 
 ## Alibaba Cloud deployment
 
-All chat and embedding inference for the submission runs on **Qwen Cloud / Alibaba Cloud Model Studio** (`dashscope-intl.aliyuncs.com/compatible-mode/v1`), verified end-to-end (model listing, streamed chat, 768-dim embeddings) against a live key. Deployment evidence: the three proxy/profile code files linked above, plus Qwen Cloud console usage screenshots collected in [`docs/superpowers/hackathon/evidence/`](https://github.com/v1b3x0r/neural-chat/tree/main/docs/superpowers/hackathon/evidence) (added to the repo before submission).
-
-<!-- FOUNDER: if Alibaba Cloud identity verification is still pending at submit time, keep the sentence below; delete it once a console/Workbench resource screenshot is in the evidence folder. -->
-*Note: our Alibaba Cloud console identity verification is still processing at submission time; the evidence above demonstrates live Qwen Cloud inference and API usage from the active account. We are not claiming a non-Alibaba host as the backend.*
+**Deployed and running on Alibaba Cloud.** The app is live on an Alibaba Cloud Simple Application Server — a zero-dependency Node service ([`web/server.mjs`](https://github.com/v1b3x0r/neural-chat/blob/main/web/server.mjs)) that serves the static build and proxies to Qwen, running under systemd behind nginx. Try it live at **https://cm.viibe.to** (also `http://47.79.255.217`). All chat and embedding inference runs on **Qwen Cloud / Alibaba Cloud Model Studio** (`dashscope-intl.aliyuncs.com/compatible-mode/v1`), verified end-to-end through the deployed server (model listing, streamed chat, 768-dim embeddings). So both the backend host and the model inference are on Alibaba Cloud. A live-deploy screenshot is in [`docs/superpowers/hackathon/evidence/`](https://github.com/v1b3x0r/neural-chat/tree/main/docs/superpowers/hackathon/evidence).
 
 ## Significantly updated since the submission period opened (May 26, 2026)
 
